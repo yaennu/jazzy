@@ -19,3 +19,10 @@ Find your [project-ref] in your Supabase project's URL (e.g., https://app.supaba
 ```
 npx supabase link --project-ref [your-project-ref]
 ```
+
+## kilocode
+
+copy mcp.example.json for GitHub MCP server access:
+```
+cp mcp.example.json mcp.json;
+```
