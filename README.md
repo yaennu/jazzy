@@ -15,9 +15,9 @@ npx supabase login
 ```
 
 Link your local project to your remote Supabase project
-Find your [project-ref] in your Supabase project's URL (e.g., https://app.supabase.com/project/[project-ref])
+Find your [project-ref] in your Supabase project's URL (e.g., https://app.supabase.com/project/[project-ID])
 ```
-npx supabase link --project-ref [your-project-ref]
+npx supabase link --project-ref [your-project-ID]
 ```
 
 ## kilocode
