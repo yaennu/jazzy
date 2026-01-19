@@ -211,3 +211,4 @@ node_modules
 
 # kilocode
 mcp.json
+supabase/.temp

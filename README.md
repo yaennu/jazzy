@@ -15,9 +15,14 @@ npx supabase login
 ```
 
 Link your local project to your remote Supabase project
-Find your [project-ref] in your Supabase project's URL (e.g., https://app.supabase.com/project/[project-ref])
+Find your [project-ref] in your Supabase project's URL (e.g., https://app.supabase.com/project/[project-ID])
 ```
-npx supabase link --project-ref [your-project-ref]
+npx supabase link --project-ref [your-project-ID]
+```
+
+Execute the SQL file on the remote database
+```
+cat schema.sql | npx supabase db remote set
 ```
 
 ## kilocode
