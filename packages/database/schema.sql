@@ -7,6 +7,7 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     password_hash TEXT NOT NULL,
     subscription_status VARCHAR(50) NOT NULL,
+    is_email_verified BOOLEAN DEFAULT false NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
