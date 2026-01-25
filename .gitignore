@@ -217,4 +217,5 @@ supabase/.temp
 .DS_Store
 
 # Data
-data/photos/IMG_*.HEIC
+data/heic-images/IMG_*.HEIC
+data/png-images/IMG_*.png
