@@ -16,7 +16,6 @@ import pytesseract
 # --- Configuration ---
 # Ensure Tesseract OCR is installed on your system.
 # On macOS: brew install tesseract
-# On Debian/Ubuntu: sudo apt-get install tesseract-ocr
 # You may also need to set the command path if it's not in your system's PATH.
 # pytesseract.pytesseract.tesseract_cmd = r'/path/to/your/tesseract'
 
@@ -24,7 +23,7 @@ import pytesseract
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
 
-PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "photos")
+PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "heic-images")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data", "albums.json")
 
 
