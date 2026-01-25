@@ -1,0 +1,4 @@
+user_id,email,name,password_hash,subscription_status
+550e8400-e29b-41d4-a716-446655440001,user1@example.com,User One,hash1,active
+550e8400-e29b-41d4-a716-446655440002,user2@example.com,User Two,hash2,inactive
+550e8400-e29b-41d4-a716-446655440003,user3@example.com,User Three,hash3,active
