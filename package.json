@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "supabase": "^2.72.8"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }
