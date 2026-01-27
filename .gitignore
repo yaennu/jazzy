@@ -215,3 +215,7 @@ supabase/.temp
 
 # MacOS
 .DS_Store
+
+# Data
+data/heic-images/IMG_*.HEIC
+data/png-images/IMG_*.png

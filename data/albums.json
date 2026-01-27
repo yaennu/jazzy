@@ -1,0 +1,29 @@
+[
+    {
+        "album_id": "a263a323-36a2-4683-9f90-2092a5a204ce",
+        "title": "Sunny Side Up",
+        "artist": "Wilbert Longmire",
+        "release_year": 1978,
+        "cover_image_url": null,
+        "streaming_link_spotify": null,
+        "streaming_link_apple": null
+    },
+    {
+        "album_id": "1272738c-9550-4a86-9bb5-fab1a05726f2",
+        "title": "The Best Of Garner",
+        "artist": "Erroll Garner",
+        "release_year": 1963,
+        "cover_image_url": null,
+        "streaming_link_spotify": null,
+        "streaming_link_apple": null
+    },
+    {
+        "album_id": "98d774e5-22dc-46b3-8d19-19676d2cbe8d",
+        "title": "The Soul Of Jazz",
+        "artist": "Various Artists",
+        "release_year": 1975,
+        "cover_image_url": null,
+        "streaming_link_spotify": null,
+        "streaming_link_apple": null
+    }
+]
