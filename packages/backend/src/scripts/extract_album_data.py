@@ -1,12 +1,13 @@
 """
-Extracts album information from HEIC photos and generates a SQL script.
+Extracts album information from HEIC photos and generates a CSV file.
 
 This script first converts all .HEIC images in a specified directory to PNG format,
 then processes the PNG images to extract album title, artist, and release year using OCR,
-and finally saves the structured data into a SQL script that can be used to insert data into a Supabase database.
+and finally saves the structured data into a CSV file.
 """
 
 import os
+import csv
 import re
 import pytesseract
 import pillow_heif
@@ -25,7 +26,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
 
 HEIC_PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "heic-images")
 PNG_PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "png-images")
-OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data", "albums.sql")
+OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data", "albums.csv")
 
 
 def convert_heic_to_png(source_dir, dest_dir):
@@ -107,7 +108,7 @@ def extract_album_info_from_image(image_path):
 
 def main():
     """
-    Main function to extract album data from photos and create a SQL script.
+    Main function to extract album data from photos and create a CSV file.
     """
     # First, convert HEIC images to PNG
     convert_heic_to_png(HEIC_PHOTOS_DIR, PNG_PHOTOS_DIR)
@@ -119,32 +120,24 @@ def main():
         print(f"No .PNG files found in {PNG_PHOTOS_DIR}")
         return
 
-    all_sql_inserts = []
+    all_albums_data = []
 
     for image_path in png_files:
         print(f"Processing {image_path}...")
         album_info = extract_album_info_from_image(image_path)
 
         if album_info and album_info["title"] != "Unknown Title":
-            # Escape single quotes in title and artist for SQL
-            title = album_info["title"].replace("'", "''")
-            artist = album_info["artist"].replace("'", "''")
-            release_year = album_info["release_year"]
-
-            # Construct the SQL INSERT statement
-            sql_insert = (
-                f"INSERT INTO albums (title, artist, release_year) "
-                f"VALUES ('{title}', '{artist}', {release_year});"
-            )
-            all_sql_inserts.append(sql_insert)
+            all_albums_data.append(album_info)
         else:
             print(f"Could not extract valid information from {image_path}")
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        for insert_statement in all_sql_inserts:
-            f.write(insert_statement + "\n")
+    with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["title", "artist", "release_year"])
+        for album in all_albums_data:
+            writer.writerow([album["title"], album["artist"], album["release_year"]])
 
-    print(f"\nSuccessfully generated {len(all_sql_inserts)} SQL INSERT statements.")
+    print(f"\nSuccessfully extracted data for {len(all_albums_data)} albums.")
     print(f"Output saved to {OUTPUT_FILE}")
 
 
