@@ -1,5 +1,47 @@
 # jazzy
-A project about a simple web app where the user can subscribe for a periodically jazz album recomendation via mail.
+A simple web app where users can subscribe to receive periodic jazz album recommendations via email.
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+- Python 3.13+ (for backend scripts)
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Frontend
+
+```bash
+cd packages/frontend
+npm run dev
+```
+
+The app will be available at `http://localhost:3000`.
+
+### Backend
+
+```bash
+cd packages/backend
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### VS Code Tasks
+
+You can also start the services directly from VS Code:
+
+1. Open the Command Palette (`Cmd+Shift+P`)
+2. Select **Tasks: Run Task**
+3. Choose one of:
+   - **Frontend: Dev Server** — starts the Next.js dev server
+   - **Backend: Activate & Run** — activates the venv and runs the extract script
+   - **Start All** — runs both in parallel
 
 ## Supabase
 
@@ -43,10 +85,4 @@ This script extracts album information from photos in the `data/photos` director
     ```bash
     python src/scripts/extract_album_data.py
     ```
-
-## kilocode
-
-copy mcp.example.json for GitHub MCP server access:
-```
-cp mcp.example.json mcp.json;
-```
+    
