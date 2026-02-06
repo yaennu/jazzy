@@ -1,1 +1,0 @@
-ALTER TABLE users ADD COLUMN newsletter_frequency VARCHAR(50) DEFAULT 'weekly';
