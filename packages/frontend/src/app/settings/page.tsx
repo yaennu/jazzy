@@ -1,21 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Label } from "../../components/ui/label";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
-import { Button } from "../../components/ui/button";
-import { supabase } from "../../lib/supabase";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
     const [frequency, setFrequency] = useState("weekly");
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<{ id: string } | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState("");
+    const router = useRouter();
+    const supabase = createClient();
 
     useEffect(() => {
         const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setUser(user);
-                const { data, error } = await supabase
+                const { data } = await supabase
                     .from("users")
                     .select("newsletter_frequency")
                     .eq("user_id", user.id)
@@ -26,10 +31,13 @@ export default function SettingsPage() {
             }
         };
         getUser();
-    }, []);
+    }, [supabase]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        setMessage("");
+        setLoading(true);
+
         if (user) {
             const { error } = await supabase
                 .from("users")
@@ -37,11 +45,18 @@ export default function SettingsPage() {
                 .eq("user_id", user.id);
 
             if (error) {
-                alert(error.message);
+                setMessage(error.message);
             } else {
-                alert("Settings saved!");
+                setMessage("Settings saved!");
             }
         }
+        setLoading(false);
+    };
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        router.push("/login");
+        router.refresh();
     };
 
     return (
@@ -52,6 +67,9 @@ export default function SettingsPage() {
                     <p className="mt-2 text-sm text-gray-600">Choose how often you want to receive the newsletter.</p>
                 </div>
                 <form onSubmit={handleSave} className="space-y-6">
+                    {message && (
+                        <p className="text-sm text-center text-gray-600">{message}</p>
+                    )}
                     <RadioGroup value={frequency} onValueChange={setFrequency}>
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="daily" id="daily" />
@@ -66,8 +84,13 @@ export default function SettingsPage() {
                             <Label htmlFor="monthly">Monthly</Label>
                         </div>
                     </RadioGroup>
-                    <Button type="submit" className="w-full">Save Settings</Button>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? "Saving..." : "Save Settings"}
+                    </Button>
                 </form>
+                <Button variant="outline" className="w-full" onClick={handleLogout}>
+                    Logout
+                </Button>
             </div>
         </div>
     );

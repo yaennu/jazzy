@@ -3,7 +3,13 @@
     "allow": [
       "Bash(git merge:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:egghead.io)",
+      "Bash(npm install:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx next build:*)"
     ]
   }
 }
