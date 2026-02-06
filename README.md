@@ -62,9 +62,9 @@ Find your [project-ref] in your Supabase project's URL (e.g., https://app.supaba
 npx supabase link --project-ref [your-project-ID]
 ```
 
-Execute the SQL file on the remote database
+Reset the remote database and apply all migrations
 ```
-cat schema.sql | npx supabase db remote set
+npx supabase db reset --linked
 ```
 
 ## Backend Scripts
