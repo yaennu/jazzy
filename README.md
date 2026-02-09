@@ -82,7 +82,7 @@ npx supabase db reset --linked
 
 ### Extract Album Data
 
-This script extracts album information from photos in the `data/photos` directory and generates a JSON file at `data/albums.json` and a SQL seed file at `supabase/seed.sql`.
+This script extracts album information from HEIC photos in the `data/heic-images/` directory using OCR and outputs to `data/albums.csv`.
 
 1.  Navigate to the backend package directory:
     ```bash
