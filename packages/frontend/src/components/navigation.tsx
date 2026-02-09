@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
+const AUTH_ROUTES = ["/login", "/register"];
+
 export default function Navigation() {
     const [user, setUser] = useState<User | null>(null);
+    const pathname = usePathname();
     const supabase = createClient();
 
     useEffect(() => {
@@ -20,6 +24,10 @@ export default function Navigation() {
 
         return () => subscription.unsubscribe();
     }, [supabase]);
+
+    if (AUTH_ROUTES.includes(pathname)) {
+        return null;
+    }
 
     return (
         <nav className="flex gap-4 p-4">
