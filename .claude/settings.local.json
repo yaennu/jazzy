@@ -9,7 +9,11 @@
       "Bash(npm install:*)",
       "Bash(claude mcp add:*)",
       "Bash(npm run build:*)",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "Bash(gh pr list:*)",
+      "Bash(brew list:*)",
+      "Read(//Applications/iTerm.app/**)",
+      "Bash(chmod:*)"
     ]
   }
 }
