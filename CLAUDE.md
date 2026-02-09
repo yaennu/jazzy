@@ -26,7 +26,6 @@ jazzy/
 │   └── migrations/        # SQL migration files
 ├── data/                  # Album data (CSV, images)
 ├── docs/                  # Architecture documentation
-├── plans/                 # Design and planning docs
 ├── scripts/               # Utility/automation scripts
 └── .github/               # CI/CD workflows
 ```
@@ -120,4 +119,3 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `packages/backend/src/main.py` | Album seeding script |
 | `data/albums.csv` | Album catalog data |
 | `docs/folder-structure.md` | Architecture rationale and structure proposal |
-| `plans/database_schema.md` | Database design documentation with ER diagram |
