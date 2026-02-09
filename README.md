@@ -1,5 +1,58 @@
 # jazzy
-A project about a simple web app where the user can subscribe for a periodically jazz album recomendation via mail.
+A simple web app where users can subscribe to receive periodic jazz album recommendations via email.
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+- Python 3.13+ (for backend scripts)
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Frontend
+
+```bash
+cd packages/frontend
+npm run dev
+```
+
+The app will be available at `http://localhost:3000`.
+
+### Backend
+
+1. Copy `packages/backend/.env` and set your Supabase credentials:
+   ```
+   SUPABASE_URL=https://<your-project-ref>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
+   ```
+   The service role key is found in your Supabase dashboard under **Settings > API**.
+
+2. Start the backend:
+   ```bash
+   cd packages/backend
+   source venv/bin/activate
+   pip install -r requirements.txt
+   python src/main.py
+   ```
+
+On startup, the backend checks if the `albums` table is empty. If so, it seeds it from `data/albums.csv`. If the table already has data, it skips seeding.
+
+### VS Code Tasks
+
+You can also start the services directly from VS Code:
+
+1. Open the Command Palette (`Cmd+Shift+P`)
+2. Select **Tasks: Run Task**
+3. Choose one of:
+   - **Frontend: Dev Server** — starts the Next.js dev server
+   - **Backend: Activate & Run** — activates the venv, installs deps, and seeds the database if empty
+   - **Start All** — runs both in parallel
 
 ## Supabase
 
@@ -15,14 +68,51 @@ npx supabase login
 ```
 
 Link your local project to your remote Supabase project
-Find your [project-ref] in your Supabase project's URL (e.g., https://app.supabase.com/project/[project-ref])
+Find your [project-ref] in your Supabase project's URL (e.g., https://app.supabase.com/project/[project-ID])
 ```
-npx supabase link --project-ref [your-project-ref]
+npx supabase link --project-ref [your-project-ID]
 ```
 
-## kilocode
+Reset the remote database and apply all migrations
+```
+npx supabase db reset --linked
+```
 
-copy mcp.example.json for GitHub MCP server access:
-```
-cp mcp.example.json mcp.json;
-```
+## Deployment
+
+### Frontend (Vercel)
+
+1. Import the repository on [vercel.com](https://vercel.com)
+2. Set the **Root Directory** to `packages/frontend`
+3. Add environment variables in the Vercel dashboard:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Deploy — Vercel auto-detects Next.js and builds on every push
+
+### Database Seeding (GitHub Actions)
+
+1. Add repository secrets in **Settings > Secrets and variables > Actions**:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+2. Go to **Actions > Seed Database > Run workflow**
+3. The workflow checks if the `albums` table is empty and seeds it from `data/albums.csv`
+
+## Backend Scripts
+
+### Extract Album Data
+
+This script extracts album information from HEIC photos in the `data/heic-images/` directory using OCR and outputs to `data/albums.csv`.
+
+1.  Navigate to the backend package directory:
+    ```bash
+    cd packages/backend
+    ```
+2.  Activate the Python virtual environment:
+    ```bash
+    source venv/bin/activate
+    ```
+3.  Run the script:
+    ```bash
+    python src/scripts/extract_album_data.py
+    ```
+    
