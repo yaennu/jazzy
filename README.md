@@ -26,11 +26,22 @@ The app will be available at `http://localhost:3000`.
 
 ### Backend
 
-```bash
-cd packages/backend
-source venv/bin/activate
-pip install -r requirements.txt
-```
+1. Copy `packages/backend/.env` and set your Supabase credentials:
+   ```
+   SUPABASE_URL=https://<your-project-ref>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
+   ```
+   The service role key is found in your Supabase dashboard under **Settings > API**.
+
+2. Start the backend:
+   ```bash
+   cd packages/backend
+   source venv/bin/activate
+   pip install -r requirements.txt
+   python src/main.py
+   ```
+
+On startup, the backend checks if the `albums` table is empty. If so, it seeds it from `data/albums.csv`. If the table already has data, it skips seeding.
 
 ### VS Code Tasks
 
@@ -40,7 +51,7 @@ You can also start the services directly from VS Code:
 2. Select **Tasks: Run Task**
 3. Choose one of:
    - **Frontend: Dev Server** — starts the Next.js dev server
-   - **Backend: Activate & Run** — activates the venv and runs the extract script
+   - **Backend: Activate & Run** — activates the venv, installs deps, and seeds the database if empty
    - **Start All** — runs both in parallel
 
 ## Supabase
