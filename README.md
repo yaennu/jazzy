@@ -78,6 +78,25 @@ Reset the remote database and apply all migrations
 npx supabase db reset --linked
 ```
 
+## Deployment
+
+### Frontend (Vercel)
+
+1. Import the repository on [vercel.com](https://vercel.com)
+2. Set the **Root Directory** to `packages/frontend`
+3. Add environment variables in the Vercel dashboard:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Deploy — Vercel auto-detects Next.js and builds on every push
+
+### Database Seeding (GitHub Actions)
+
+1. Add repository secrets in **Settings > Secrets and variables > Actions**:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+2. Go to **Actions > Seed Database > Run workflow**
+3. The workflow checks if the `albums` table is empty and seeds it from `data/albums.csv`
+
 ## Backend Scripts
 
 ### Extract Album Data
