@@ -26,7 +26,7 @@
     {
       "label": "Backend: Activate & Run",
       "type": "shell",
-      "command": "source venv/bin/activate && pip install -r requirements.txt && python src/scripts/extract_album_data.py",
+      "command": "source venv/bin/activate && pip install -r requirements.txt && python src/main.py",
       "options": {
         "cwd": "${workspaceFolder}/packages/backend"
       }
