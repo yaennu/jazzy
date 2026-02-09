@@ -1,3 +1,5 @@
 pillow-heif
 Pillow
 pytesseract
+supabase
+python-dotenv
