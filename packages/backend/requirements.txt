@@ -1,5 +1,6 @@
 pillow-heif
 Pillow
 pytesseract
+resend
 supabase
 python-dotenv

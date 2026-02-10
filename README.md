@@ -97,6 +97,18 @@ npx supabase db reset --linked
 2. Go to **Actions > Seed Database > Run workflow**
 3. The workflow checks if the `albums` table is empty and seeds it from `data/albums.csv`
 
+### Email Recommendations (GitHub Actions)
+
+Album recommendations are sent automatically via a scheduled GitHub Actions workflow using [Resend](https://resend.com).
+
+1. Sign up at [resend.com](https://resend.com) and create an API key
+2. Verify a sending domain (or use the test domain for development)
+3. Add the `RESEND_API_KEY` secret in **Settings > Secrets and variables > Actions**
+4. The **Send Recommendations** workflow runs daily at 09:00 UTC
+5. It can also be triggered manually from **Actions > Send Recommendations > Run workflow**
+
+The script checks each user's `newsletter_frequency` preference (daily/weekly/monthly) and sends a random unsent album recommendation to eligible users.
+
 ## Backend Scripts
 
 ### Extract Album Data
