@@ -8,6 +8,7 @@ def render_recommendation_email(user_name: str, album: dict) -> str:
     title = album.get("title", "Unknown Album")
     artist = album.get("artist", "Unknown Artist")
     release_year = album.get("release_year")
+    cover_image_url = album.get("cover_image_url")
     spotify_link = album.get("streaming_link_spotify")
     apple_link = album.get("streaming_link_apple")
 
@@ -63,6 +64,7 @@ def render_recommendation_email(user_name: str, album: dict) -> str:
               </p>
               <!-- Album Card -->
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f5; border-radius: 8px;">
+                {'<tr><td style="padding: 24px 24px 0; text-align: center;"><img src="' + cover_image_url + '" alt="' + title + ' album cover" width="300" style="display: block; margin: 0 auto; border-radius: 8px; max-width: 100%; height: auto;" /></td></tr>' if cover_image_url else ''}
                 <tr>
                   <td style="padding: 24px; text-align: center;">
                     <p style="margin: 0 0 4px; color: #18181b; font-size: 20px; font-weight: 700;">{title}</p>

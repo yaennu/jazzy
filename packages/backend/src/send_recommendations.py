@@ -87,6 +87,11 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
     unsent = [a for a in all_albums if a["album_id"] not in sent_ids]
 
     if not unsent:
+        # All albums sent — clear history and start over
+        client.table("recommendations").delete().eq("user_id", user_id).execute()
+        unsent = all_albums
+
+    if not unsent:
         return None
 
     return random.choice(unsent)
