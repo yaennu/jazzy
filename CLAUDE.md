@@ -20,8 +20,12 @@ jazzy/
 │   │       └── email-templates/ # Email HTML templates
 │   └── backend/           # Python backend scripts
 │       └── src/
-│           ├── main.py        # Album seeding script
-│           └── scripts/       # Data extraction utilities
+│           ├── main.py            # Album seeding script
+│           ├── email_template.py  # Recommendation email HTML template
+│           ├── send_recommendations.py  # Email sending script (used by GitHub Actions)
+│           └── scripts/
+│               ├── extract_album_data.py  # OCR-based album data extraction
+│               └── add_streaming_links.py # Spotify & Apple Music link lookup
 ├── supabase/
 │   └── migrations/        # SQL migration files
 ├── data/                  # Album data (CSV, images)
@@ -35,6 +39,7 @@ jazzy/
 - **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript
 - **Backend:** Python 3.13+
 - **Database:** PostgreSQL via Supabase
+- **Email:** Resend (via GitHub Actions cron)
 - **UI Components:** shadcn/ui + Tailwind CSS v4
 - **Package Manager:** npm (lockfile v3)
 - **Monorepo:** npm workspaces
@@ -100,13 +105,13 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 - OCR-based album data extraction (Python)
 - Protected routes with auth middleware
 - Navigation based on auth state
+- Email recommendation sending via Resend (GitHub Actions cron, daily at 09:00 UTC)
+- Streaming link lookup script (Spotify Web API + iTunes Search API)
+- Database seeding via GitHub Actions workflow
 
 **Not yet implemented:**
-- Email scheduling/sending logic
-- Recommendation algorithm
-- Album cover images and streaming links
 - Tests
-- CI/CD workflows
+- Album cover images
 
 ## Key Files
 
@@ -117,5 +122,10 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `packages/frontend/src/lib/supabase/` | Supabase client setup (browser, server, middleware) |
 | `packages/frontend/src/app/` | Next.js pages and API routes |
 | `packages/backend/src/main.py` | Album seeding script |
+| `packages/backend/src/email_template.py` | Recommendation email HTML template |
+| `packages/backend/src/send_recommendations.py` | Email sending script (Resend + frequency logic) |
+| `packages/backend/src/scripts/add_streaming_links.py` | Spotify & Apple Music link lookup |
+| `.github/workflows/send-recommendations.yml` | Cron workflow for daily email recommendations |
+| `.github/workflows/seed-database.yml` | Manual workflow for database seeding |
 | `data/albums.csv` | Album catalog data |
 | `docs/folder-structure.md` | Architecture rationale and structure proposal |

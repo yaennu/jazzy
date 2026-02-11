@@ -111,6 +111,24 @@ The script checks each user's `newsletter_frequency` preference (daily/weekly/mo
 
 ## Backend Scripts
 
+### Add Streaming Links
+
+This script looks up Spotify and Apple Music links for albums in the database that are missing streaming links, using the Spotify Web API and iTunes Search API.
+
+1.  Navigate to the backend package directory:
+    ```bash
+    cd packages/backend
+    ```
+2.  Activate the Python virtual environment:
+    ```bash
+    source venv/bin/activate
+    ```
+3.  Ensure your `.env` file contains the required credentials (see `.env.example` for `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and Supabase credentials)
+4.  Run the script:
+    ```bash
+    python src/scripts/add_streaming_links.py
+    ```
+
 ### Extract Album Data
 
 This script extracts album information from HEIC photos in the `data/heic-images/` directory using OCR and outputs to `data/albums.csv`.
