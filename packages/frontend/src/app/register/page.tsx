@@ -26,6 +26,7 @@ export default function RegisterPage() {
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
+            options: { data: { name } },
         });
 
         if (error) {
@@ -35,21 +36,6 @@ export default function RegisterPage() {
         }
 
         if (data.user) {
-            const { error: insertError } = await supabase
-                .from("users")
-                .insert({
-                    user_id: data.user.id,
-                    email,
-                    name,
-                    subscription_status: "active",
-                });
-
-            if (insertError) {
-                setError(insertError.message);
-                setLoading(false);
-                return;
-            }
-
             if (data.user.identities?.length === 0) {
                 setError("An account with this email already exists.");
                 setLoading(false);

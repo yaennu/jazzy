@@ -19,6 +19,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 
 FROM_EMAIL = "Jazzy <onboarding@resend.dev>"
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 
 def get_supabase_client() -> Client:
@@ -60,7 +61,7 @@ def get_eligible_users(client: Client) -> list[dict]:
 
     response = (
         client.table("users")
-        .select("user_id, email, name, newsletter_frequency")
+        .select("user_id, email, name, newsletter_frequency, unsubscribe_token")
         .eq("subscription_status", "active")
         .in_("newsletter_frequency", frequencies)
         .execute()
@@ -99,7 +100,8 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
 
 def send_email(user: dict, album: dict) -> bool:
     """Send a recommendation email via Resend. Returns True on success."""
-    html = render_recommendation_email(user["name"], album)
+    unsubscribe_url = f"{FRONTEND_URL}/unsubscribe?token={user['unsubscribe_token']}"
+    html = render_recommendation_email(user["name"], album, unsubscribe_url)
 
     try:
         resend.Emails.send({

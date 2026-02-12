@@ -4,7 +4,7 @@ Matches the visual style of the signup confirmation email.
 """
 
 
-def render_recommendation_email(user_name: str, album: dict) -> str:
+def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: str = "") -> str:
     title = album.get("title", "Unknown Album")
     artist = album.get("artist", "Unknown Artist")
     release_year = album.get("release_year")
@@ -79,6 +79,7 @@ def render_recommendation_email(user_name: str, album: dict) -> str:
           <tr>
             <td style="padding: 24px 40px; border-top: 1px solid #e4e4e7; text-align: center;">
               <p style="margin: 0; color: #a1a1aa; font-size: 12px;">Jazzy &mdash; Discover jazz, one album at a time.</p>
+              {'<p style="margin: 8px 0 0; font-size: 12px;"><a href="' + unsubscribe_url + '" style="color: #a1a1aa; text-decoration: underline;">Unsubscribe</a></p>' if unsubscribe_url else ''}
             </td>
           </tr>
         </table>
