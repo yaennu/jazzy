@@ -15,5 +15,6 @@
       "Read(//Applications/iTerm.app/**)",
       "Bash(chmod:*)"
     ]
-  }
+  },
+  "outputStyle": "Explanatory"
 }
