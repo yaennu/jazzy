@@ -14,29 +14,19 @@ export default async function UnsubscribePage({
     } else {
         const supabase = await createClient();
 
-        const { data: user } = await supabase
-            .from("users")
-            .select("user_id, subscription_status")
-            .eq("unsubscribe_token", token)
-            .single();
+        const { data: result, error } = await supabase.rpc(
+            "unsubscribe_by_token",
+            { p_token: token }
+        );
 
-        if (!user) {
+        if (error || result === "invalid_token") {
             message = "Invalid unsubscribe link.";
-        } else if (user.subscription_status === "inactive") {
+        } else if (result === "already_unsubscribed") {
             message = "You are already unsubscribed.";
             success = true;
         } else {
-            const { error } = await supabase
-                .from("users")
-                .update({ subscription_status: "inactive" })
-                .eq("user_id", user.user_id);
-
-            if (error) {
-                message = "Something went wrong. Please try again later.";
-            } else {
-                message = "You have been unsubscribed from Jazzy recommendations.";
-                success = true;
-            }
+            message = "You have been unsubscribed from Jazzy recommendations.";
+            success = true;
         }
     }
 
