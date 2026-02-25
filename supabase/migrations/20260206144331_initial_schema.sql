@@ -43,7 +43,8 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', 'User'),
     'active'
-  );
+  )
+  ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
