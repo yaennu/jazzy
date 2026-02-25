@@ -18,7 +18,7 @@ from email_template import render_recommendation_email
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 
-FROM_EMAIL = "Jazzy <onboarding@resend.dev>"
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "Jazzy <onboarding@resend.dev>")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 
