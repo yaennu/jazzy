@@ -19,6 +19,7 @@ ARTWORK_SIZE = "600x600"
 
 
 def get_supabase_client() -> Client:
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
     load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")

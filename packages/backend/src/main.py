@@ -19,11 +19,12 @@ EXTRACT_SCRIPT = os.path.join(SCRIPT_DIR, "scripts", "extract_album_data.py")
 
 
 def get_supabase_client() -> Client:
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
     load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
-        print("Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in packages/backend/.env")
+        print("Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in packages/backend/.env.local")
         sys.exit(1)
     return create_client(url, key)
 

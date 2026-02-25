@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-const AUTH_ROUTES = ["/login", "/register"];
+const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export default function Navigation() {
     const [user, setUser] = useState<User | null>(null);

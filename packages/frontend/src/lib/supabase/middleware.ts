@@ -34,7 +34,7 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     const pathname = request.nextUrl.pathname
-    const publicRoutes = ['/login', '/register', '/auth/confirm']
+    const publicRoutes = ['/login', '/register', '/auth/confirm', '/unsubscribe', '/forgot-password']
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
     if (!user && !isPublicRoute) {
@@ -43,7 +43,7 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
-    if (user && (pathname === '/login' || pathname === '/register')) {
+    if (user && (pathname === '/login' || pathname === '/register' || pathname === '/forgot-password')) {
         const url = request.nextUrl.clone()
         url.pathname = '/settings'
         return NextResponse.redirect(url)

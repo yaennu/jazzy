@@ -2,7 +2,7 @@ name: Send Recommendations
 
 on:
   schedule:
-    - cron: '0 9 * * *' # Daily at 09:00 UTC
+    - cron: '0 4 * * *' # Daily at 04:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -27,4 +27,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
         run: python src/send_recommendations.py

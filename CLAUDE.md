@@ -25,7 +25,8 @@ jazzy/
 │           ├── send_recommendations.py  # Email sending script (used by GitHub Actions)
 │           └── scripts/
 │               ├── extract_album_data.py  # OCR-based album data extraction
-│               └── add_streaming_links.py # Spotify & Apple Music link lookup
+│               ├── add_streaming_links.py # Spotify & Apple Music link lookup
+│               └── add_album_covers.py    # Album cover art lookup (iTunes)
 ├── supabase/
 │   └── migrations/        # SQL migration files
 ├── data/                  # Album data (CSV, images)
@@ -105,13 +106,15 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 - OCR-based album data extraction (Python)
 - Protected routes with auth middleware
 - Navigation based on auth state
-- Email recommendation sending via Resend (GitHub Actions cron, daily at 09:00 UTC)
+- Email recommendation sending via Resend (GitHub Actions cron, daily at 04:00 UTC)
+- Recommendation history resets when all albums have been sent
 - Streaming link lookup script (Spotify Web API + iTunes Search API)
+- Album cover art lookup script (iTunes Search API)
+- Album cover image in recommendation emails
 - Database seeding via GitHub Actions workflow
 
 **Not yet implemented:**
 - Tests
-- Album cover images
 
 ## Key Files
 
@@ -125,6 +128,7 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `packages/backend/src/email_template.py` | Recommendation email HTML template |
 | `packages/backend/src/send_recommendations.py` | Email sending script (Resend + frequency logic) |
 | `packages/backend/src/scripts/add_streaming_links.py` | Spotify & Apple Music link lookup |
+| `packages/backend/src/scripts/add_album_covers.py` | Album cover art lookup (iTunes) |
 | `.github/workflows/send-recommendations.yml` | Cron workflow for daily email recommendations |
 | `.github/workflows/seed-database.yml` | Manual workflow for database seeding |
 | `data/albums.csv` | Album catalog data |

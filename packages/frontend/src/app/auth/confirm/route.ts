@@ -6,13 +6,27 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const token_hash = searchParams.get('token_hash')
     const type = searchParams.get('type') as EmailOtpType | null
+    const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/settings'
 
     const redirectTo = request.nextUrl.clone()
     redirectTo.pathname = next
     redirectTo.searchParams.delete('token_hash')
     redirectTo.searchParams.delete('type')
+    redirectTo.searchParams.delete('code')
 
+    // PKCE flow: exchanging an auth code (used by resetPasswordForEmail with redirectTo)
+    if (code) {
+        const supabase = await createClient()
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+        if (!error) {
+            redirectTo.searchParams.delete('next')
+            return NextResponse.redirect(redirectTo)
+        }
+    }
+
+    // Token hash flow: verifying an OTP (used by email confirmation templates)
     if (token_hash && type) {
         const supabase = await createClient()
 
