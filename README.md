@@ -1,6 +1,8 @@
 # jazzy
 A simple web app where users can subscribe to receive periodic jazz album recommendations via email.
 
+**Live at [jazzy.yaennu.ch](https://jazzy.yaennu.ch)**
+
 ## Getting Started
 
 ### Prerequisites
@@ -103,7 +105,7 @@ Album recommendations are sent automatically via a scheduled GitHub Actions work
 
 1. Sign up at [resend.com](https://resend.com) and create an API key
 2. Verify a sending domain (or use the test domain for development)
-3. Add the `RESEND_API_KEY` secret in **Settings > Secrets and variables > Actions**
+3. Add the `RESEND_API_KEY` and `FROM_EMAIL` (e.g., `Jazzy <noreply@jazzy.yaennu.ch>`) secrets in **Settings > Secrets and variables > Actions**
 4. The **Send Recommendations** workflow runs daily at 04:00 UTC
 5. It can also be triggered manually from **Actions > Send Recommendations > Run workflow**
 
