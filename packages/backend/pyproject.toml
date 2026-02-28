@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+markers = [
+    "slow: tests that require a running Ollama instance with a vision model",
+]
