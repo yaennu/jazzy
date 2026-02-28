@@ -222,5 +222,5 @@ supabase/.temp
 .claude/settings.local.json
 
 # Data
-data/heic-images/IMG_*.HEIC
 data/png-images/IMG_*.png
+data/albums.csv
