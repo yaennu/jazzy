@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "supabase": "^2.72.9"
+    "supabase": "^2.76.15"
   },
   "workspaces": [
     "packages/*"
