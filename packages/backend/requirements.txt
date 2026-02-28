@@ -1,6 +1,6 @@
 pillow-heif
 Pillow
-pytesseract
+ollama
 requests
 resend
 supabase
