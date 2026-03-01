@@ -28,6 +28,7 @@ cover, there are a few lines of small printed text. The text follows this format
   Line 1: Artist name
   Line 2: Album title
   Line 3: Record label, release year
+  Lines 4+: Cover artist(s) — one or more lines listing who created the cover artwork
 
 IMPORTANT: Read ONLY the small printed text in the bottom-right area. Do NOT read \
 text from the album cover artwork itself. The release year is the 4-digit year next \
@@ -36,7 +37,9 @@ to the record label name (e.g. "Blue Note Records, 1975"), NOT any calendar date
 Return ONLY a JSON object with these keys:
 - "artist": the artist or band name (from line 1 of the text area)
 - "title": the album title (from line 2 of the text area)
+- "label_name": the record label name (from line 3, e.g. "Blue Note Records")
 - "release_year": the original album release year as an integer (from line 3)
+- "cover_artists": all remaining lines after line 3, joined with ", " as a single string
 
 Return ONLY valid JSON, no other text.\
 """
@@ -131,7 +134,9 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
         return {
             "title": str(data.get("title", "Unknown Title")).strip(),
             "artist": str(data.get("artist", "Unknown Artist")).strip(),
+            "label_name": str(data.get("label_name", "")).strip(),
             "release_year": int(release_year),
+            "cover_artists": str(data.get("cover_artists", "")).strip(),
         }
 
     except Exception as e:
@@ -167,9 +172,16 @@ def main():
 
     with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["title", "artist", "release_year", "source_file"])
+        writer.writerow(["title", "artist", "label_name", "release_year", "cover_artists", "source_file"])
         for album in all_albums_data:
-            writer.writerow([album["title"], album["artist"], album["release_year"], album["source_file"]])
+            writer.writerow([
+                album["title"],
+                album["artist"],
+                album["label_name"],
+                album["release_year"],
+                album["cover_artists"],
+                album["source_file"],
+            ])
 
     print(f"\nSuccessfully extracted data for {len(all_albums_data)} albums.")
     print(f"Output saved to {OUTPUT_FILE}")
