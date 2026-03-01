@@ -1,0 +1,149 @@
+"""
+Generate short artist and album summaries for albums that are missing them.
+Uses the Perplexity API (search-augmented LLM) so no separate Wikipedia fetch is needed —
+Perplexity searches the web and summarizes in a single call.
+
+Run manually after seeding the database:
+    uv run python src/scripts/add_album_summaries.py
+"""
+
+import os
+import sys
+import time
+
+import requests
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
+PERPLEXITY_MODEL = "sonar"
+SUMMARY_TARGET_WORDS = "100–150"
+REQUEST_DELAY_SECONDS = 1.5
+
+
+def get_supabase_client() -> Client:
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print("Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+        sys.exit(1)
+    return create_client(url, key)
+
+
+def get_perplexity_api_key() -> str:
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+    key = os.environ.get("PERPLEXITY_API_KEY")
+    if not key:
+        print("Error: PERPLEXITY_API_KEY must be set.")
+        sys.exit(1)
+    return key
+
+
+def query_perplexity(api_key: str, prompt: str) -> str | None:
+    """Send a prompt to Perplexity and return the response text, or None on failure."""
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": PERPLEXITY_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a knowledgeable jazz music writer. "
+                    "Write factual, engaging summaries in plain prose. "
+                    f"Keep each summary to {SUMMARY_TARGET_WORDS} words. "
+                    "Do not use bullet points or headings. Do not include citations or footnotes."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+    }
+    try:
+        response = requests.post(PERPLEXITY_API_URL, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"    Perplexity error: {e}")
+        return None
+
+
+def get_albums_missing_summaries(client: Client) -> list[dict]:
+    """Return albums where at least one summary column is NULL."""
+    response = (
+        client.table("albums")
+        .select("album_id, title, artist, release_year")
+        .or_("artist_summary.is.null,album_summary.is.null")
+        .execute()
+    )
+    return response.data
+
+
+def main():
+    print("Generating album and artist summaries via Perplexity...")
+
+    client = get_supabase_client()
+    api_key = get_perplexity_api_key()
+
+    albums = get_albums_missing_summaries(client)
+    print(f"Found {len(albums)} album(s) with missing summaries.\n")
+
+    if not albums:
+        return
+
+    updated = 0
+    for album in albums:
+        title = album["title"]
+        artist = album["artist"]
+        release_year = album.get("release_year")
+        year_str = f" ({release_year})" if release_year else ""
+
+        print(f"  {title}{year_str} — {artist}")
+
+        updates: dict = {}
+
+        if album.get("artist_summary") is None:
+            prompt = (
+                f"Write a {SUMMARY_TARGET_WORDS}-word biographical summary of the jazz musician "
+                f'"{artist}". Cover their background, musical style, and significance in jazz history. '
+                "Search for accurate information from Wikipedia and music reference sources."
+            )
+            summary = query_perplexity(api_key, prompt)
+            if summary:
+                updates["artist_summary"] = summary
+                print(f"    Artist summary: {len(summary.split())} words")
+            else:
+                print("    Artist summary: failed")
+            time.sleep(REQUEST_DELAY_SECONDS)
+
+        if album.get("album_summary") is None:
+            prompt = (
+                f"Write a {SUMMARY_TARGET_WORDS}-word summary of the jazz album "
+                f'"{title}"{year_str} by {artist}. Cover its musical style, recording context, '
+                "key tracks, and why it matters in the jazz canon. "
+                "Search for accurate information from Wikipedia and music reference sources."
+            )
+            summary = query_perplexity(api_key, prompt)
+            if summary:
+                updates["album_summary"] = summary
+                print(f"    Album summary: {len(summary.split())} words")
+            else:
+                print("    Album summary: failed")
+            time.sleep(REQUEST_DELAY_SECONDS)
+
+        if updates:
+            client.table("albums").update(updates).eq("album_id", album["album_id"]).execute()
+            updated += 1
+
+    print(f"\nDone. Updated {updated}/{len(albums)} album(s).")
+
+
+if __name__ == "__main__":
+    main()
