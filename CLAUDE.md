@@ -38,7 +38,7 @@ jazzy/
 ## Tech Stack
 
 - **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript
-- **Backend:** Python 3.13+
+- **Backend:** Python 3.13+ (managed with uv)
 - **Database:** PostgreSQL via Supabase
 - **Email:** Resend (via GitHub Actions cron)
 - **UI Components:** shadcn/ui + Tailwind CSS v4
@@ -61,7 +61,7 @@ All primary keys are UUIDs (via `uuid-ossp` extension). Foreign keys use `ON DEL
 
 - Node.js 18+
 - npm
-- Python 3.13+ (for backend scripts)
+- [uv](https://docs.astral.sh/uv/) (for backend scripts, manages Python version and dependencies)
 - Supabase CLI
 
 ### Supabase

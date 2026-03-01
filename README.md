@@ -9,7 +9,7 @@ A simple web app where users can subscribe to receive periodic jazz album recomm
 
 - Node.js 18+
 - npm
-- Python 3.13+ (for backend scripts)
+- [uv](https://docs.astral.sh/uv/) (for backend scripts)
 
 ### Install Dependencies
 
@@ -38,9 +38,7 @@ The app will be available at `http://localhost:3000`.
 2. Start the backend:
    ```bash
    cd packages/backend
-   source venv/bin/activate
-   pip install -r requirements.txt
-   python src/main.py
+   uv run python src/main.py
    ```
 
 On startup, the backend checks if the `albums` table is empty. If so, it seeds it from `data/albums.csv`. If the table already has data, it skips seeding.
@@ -53,7 +51,7 @@ You can also start the services directly from VS Code:
 2. Select **Tasks: Run Task**
 3. Choose one of:
    - **Frontend: Dev Server** — starts the Next.js dev server
-   - **Backend: Activate & Run** — activates the venv, installs deps, and seeds the database if empty
+   - **Backend: Activate & Run** — installs deps via uv and seeds the database if empty
    - **Start All** — runs both in parallel
 
 ## Supabase
@@ -121,14 +119,10 @@ This script looks up Spotify and Apple Music links for albums in the database th
     ```bash
     cd packages/backend
     ```
-2.  Activate the Python virtual environment:
+2.  Ensure your `.env` file contains the required credentials (see `.env.example` for `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and Supabase credentials)
+3.  Run the script:
     ```bash
-    source venv/bin/activate
-    ```
-3.  Ensure your `.env` file contains the required credentials (see `.env.example` for `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and Supabase credentials)
-4.  Run the script:
-    ```bash
-    python src/scripts/add_streaming_links.py
+    uv run python src/scripts/add_streaming_links.py
     ```
 
 ### Add Album Covers
@@ -139,13 +133,9 @@ This script looks up album cover art for albums that have an Apple Music streami
     ```bash
     cd packages/backend
     ```
-2.  Activate the Python virtual environment:
+2.  Run the script:
     ```bash
-    source venv/bin/activate
-    ```
-3.  Run the script:
-    ```bash
-    python src/scripts/add_album_covers.py
+    uv run python src/scripts/add_album_covers.py
     ```
 
 ### Extract Album Data
@@ -156,12 +146,8 @@ This script extracts album information from HEIC photos in the `data/heic-images
     ```bash
     cd packages/backend
     ```
-2.  Activate the Python virtual environment:
+2.  Run the script:
     ```bash
-    source venv/bin/activate
-    ```
-3.  Run the script:
-    ```bash
-    python src/scripts/extract_album_data.py
+    uv run python src/scripts/extract_album_data.py
     ```
     
