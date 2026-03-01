@@ -2,8 +2,10 @@
 Extracts album information from PNG images and generates a CSV file.
 
 Processes PNG images to extract album title, artist, and release year
-using a local vision language model via Ollama, and saves the structured
+using Google Gemini 2.0 Flash via the Gen AI SDK, and saves the structured
 data into a CSV file.
+
+Requires GEMINI_API_KEY to be set in packages/backend/.env.local
 """
 
 import csv
@@ -12,15 +14,21 @@ import os
 import re
 import tempfile
 
-from ollama import chat
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 from PIL import Image
 
 
 # --- Configuration ---
-# Vision model used for OCR extraction. Swap to a larger model for better accuracy:
-#   granite3.2-vision  (~2 GB) — compact, fast
-#   llama3.2-vision    (~7 GB) — higher accuracy
-MODEL_NAME = "granite3.2-vision"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
+load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+
+MODEL_NAME = "gemini-2.0-flash"
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 EXTRACTION_PROMPT = """\
 This is a photo of a jazz calendar page. In the bottom-right area below the album \
@@ -44,9 +52,7 @@ Return ONLY a JSON object with these keys:
 Return ONLY valid JSON, no other text.\
 """
 
-# Construct absolute paths from the script's location to make it runnable from anywhere
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
+PROJECT_ROOT = os.path.abspath(os.path.join(BACKEND_ROOT, "..", ".."))
 
 PNG_PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "png-images")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data", "albums.csv")
@@ -89,8 +95,8 @@ def _crop_text_area(image_path):
     """
     img = Image.open(image_path)
     width, height = img.size
-    # The text area is always in the bottom ~35% of the calendar page
-    cropped = img.crop((0, int(height * 0.65), width, height))
+    # The text area is always in the bottom ~50% of the calendar page
+    cropped = img.crop((0, int(height * 0.5), width, height))
     # Upscale 2x for better character recognition on small text
     cropped = cropped.resize(
         (cropped.width * 2, cropped.height * 2), Image.Resampling.LANCZOS
@@ -107,18 +113,19 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
     cropped_path = None
     try:
         cropped_path = _crop_text_area(image_path)
-        response = chat(
+
+        with open(cropped_path, "rb") as f:
+            image_bytes = f.read()
+
+        response = client.models.generate_content(
             model=model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": EXTRACTION_PROMPT,
-                    "images": [cropped_path],
-                }
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+                EXTRACTION_PROMPT,
             ],
         )
 
-        raw_text = response.message.content
+        raw_text = response.text
         data = _parse_json_from_response(raw_text)
 
         if data is None:
@@ -164,7 +171,11 @@ def main():
         print(f"Processing {image_path}...")
         album_info = extract_album_info_from_image(image_path)
 
-        if album_info and album_info["title"].strip() and album_info["title"] != "Unknown Title":
+        if (
+            album_info
+            and album_info["title"].strip()
+            and album_info["title"] != "Unknown Title"
+        ):
             album_info["source_file"] = os.path.basename(image_path)
             all_albums_data.append(album_info)
         else:
@@ -172,16 +183,27 @@ def main():
 
     with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["title", "artist", "label_name", "release_year", "cover_artists", "source_file"])
+        writer.writerow(
+            [
+                "title",
+                "artist",
+                "label_name",
+                "release_year",
+                "cover_artists",
+                "source_file",
+            ]
+        )
         for album in all_albums_data:
-            writer.writerow([
-                album["title"],
-                album["artist"],
-                album["label_name"],
-                album["release_year"],
-                album["cover_artists"],
-                album["source_file"],
-            ])
+            writer.writerow(
+                [
+                    album["title"],
+                    album["artist"],
+                    album["label_name"],
+                    album["release_year"],
+                    album["cover_artists"],
+                    album["source_file"],
+                ]
+            )
 
     print(f"\nSuccessfully extracted data for {len(all_albums_data)} albums.")
     print(f"Output saved to {OUTPUT_FILE}")
