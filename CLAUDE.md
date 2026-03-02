@@ -66,6 +66,8 @@ All primary keys are UUIDs (via `uuid-ossp` extension). Foreign keys use `ON DEL
 
 ### Supabase
 
+**Important:** All Supabase CLI commands (`npx supabase ...`) must be run from the project root (`jazzy/`), not from subdirectories like `packages/backend/`. The CLI looks for the `supabase/` directory relative to the current working directory.
+
 ```bash
 npm install supabase --save-dev
 npx supabase login
