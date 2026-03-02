@@ -8,6 +8,7 @@ Run manually after seeding the database:
 """
 
 import os
+import re
 import sys
 import time
 
@@ -20,7 +21,7 @@ BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 
 PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
 PERPLEXITY_MODEL = "sonar"
-SUMMARY_TARGET_WORDS = "100–150"
+SUMMARY_TARGET_WORDS = "40-60"
 REQUEST_DELAY_SECONDS = 1.5
 
 
@@ -60,16 +61,23 @@ def query_perplexity(api_key: str, prompt: str) -> str | None:
                     "You are a knowledgeable jazz music writer. "
                     "Write factual, engaging summaries in plain prose. "
                     f"Keep each summary to {SUMMARY_TARGET_WORDS} words. "
-                    "Do not use bullet points or headings. Do not include citations or footnotes."
+                    "Do not use bullet points or headings. Do not include citations or footnotes. "
+                    "Link every person, musician, band, record label, album and record"
+                    'mentioned in your text as an HTML anchor tag (<a href="URL">name</a>) '
+                    "pointing to their Wikipedia page. Only use URLs you are confident exist."
+                    "Do not use [] for source referencing."
                 ),
             },
             {"role": "user", "content": prompt},
         ],
     }
     try:
-        response = requests.post(PERPLEXITY_API_URL, headers=headers, json=payload, timeout=30)
+        response = requests.post(
+            PERPLEXITY_API_URL, headers=headers, json=payload, timeout=30
+        )
         response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
+        text = response.json()["choices"][0]["message"]["content"].strip()
+        return re.sub(r"\[\d+\]", "", text).strip()
     except Exception as e:
         print(f"    Perplexity error: {e}")
         return None
@@ -79,7 +87,7 @@ def get_albums_missing_summaries(client: Client) -> list[dict]:
     """Return albums where at least one summary column is NULL."""
     response = (
         client.table("albums")
-        .select("album_id, title, artist, release_year")
+        .select("album_id, title, artist, release_year, artist_summary")
         .or_("artist_summary.is.null,album_summary.is.null")
         .execute()
     )
@@ -124,11 +132,21 @@ def main():
             time.sleep(REQUEST_DELAY_SECONDS)
 
         if album.get("album_summary") is None:
+            artist_summary = (
+                updates.get("artist_summary") or album.get("artist_summary") or ""
+            )
+            artist_context = ""
+            if artist_summary:
+                artist_context = (
+                    f"\n\nThe reader will already see this artist bio alongside the album summary, "
+                    f'so do NOT repeat biographical details:\n"{artist_summary}"'
+                )
             prompt = (
                 f"Write a {SUMMARY_TARGET_WORDS}-word summary of the jazz album "
                 f'"{title}"{year_str} by {artist}. Cover its musical style, recording context, '
                 "key tracks, and why it matters in the jazz canon. "
                 "Search for accurate information from Wikipedia and music reference sources."
+                f"{artist_context}"
             )
             summary = query_perplexity(api_key, prompt)
             if summary:
@@ -139,7 +157,9 @@ def main():
             time.sleep(REQUEST_DELAY_SECONDS)
 
         if updates:
-            client.table("albums").update(updates).eq("album_id", album["album_id"]).execute()
+            client.table("albums").update(updates).eq(
+                "album_id", album["album_id"]
+            ).execute()
             updated += 1
 
     print(f"\nDone. Updated {updated}/{len(albums)} album(s).")
