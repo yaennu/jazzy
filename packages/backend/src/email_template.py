@@ -4,6 +4,31 @@ Matches the visual style of the signup confirmation email.
 """
 
 
+def _render_summaries(album_summary: str | None, artist_summary: str | None) -> str:
+    """Render the editorial summaries block, or empty string if both are absent."""
+    if not album_summary and not artist_summary:
+        return ""
+
+    inner = ""
+    if album_summary:
+        inner += f'''
+                <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About this album</p>
+                <p style="margin: 0{' 0 20px' if artist_summary else ''}; color: #52525b; font-size: 14px; line-height: 1.7;">{album_summary}</p>'''
+    if artist_summary:
+        inner += f'''
+                <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About the artist</p>
+                <p style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">{artist_summary}</p>'''
+
+    return f'''
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 24px;">
+                <tr>
+                  <td style="padding: 20px 24px; background-color: #fafafa; border-radius: 8px; border-left: 3px solid #e4e4e7;">
+                    {inner}
+                  </td>
+                </tr>
+              </table>'''
+
+
 def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: str = "") -> str:
     title = album.get("title", "Unknown Album")
     artist = album.get("artist", "Unknown Artist")
@@ -11,6 +36,8 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
     cover_image_url = album.get("cover_image_url")
     spotify_link = album.get("streaming_link_spotify")
     apple_link = album.get("streaming_link_apple")
+    artist_summary = album.get("artist_summary")
+    album_summary = album.get("album_summary")
 
     year_text = f" ({release_year})" if release_year else ""
 
@@ -73,6 +100,7 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
                 </tr>
               </table>
               {streaming_buttons}
+              {_render_summaries(album_summary, artist_summary)}
             </td>
           </tr>
           <!-- Footer -->

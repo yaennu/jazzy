@@ -213,6 +213,7 @@ node_modules
 # kilocode
 mcp.json
 supabase/.temp
+packages/backend/supabase/
 
 # MacOS
 .DS_Store
