@@ -1,23 +1,25 @@
 """
-Extracts album information from PNG images and generates a CSV file.
+Extracts album information from PNG images and inserts records into the database.
 
-Processes PNG images to extract album title, artist, and release year
-using Google Gemini 2.0 Flash via the Gen AI SDK, and saves the structured
-data into a CSV file.
+Processes PNG images to extract album title, artist, release year, record label,
+and cover artists using Google Gemini 2.0 Flash via the Gen AI SDK, and inserts
+the structured data directly into the albums table.
 
-Requires GEMINI_API_KEY to be set in packages/backend/.env.local
+Requires GEMINI_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY to be set
+in packages/backend/.env.local
 """
 
-import csv
 import json
 import os
 import re
+import sys
 import tempfile
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from PIL import Image
+from supabase import create_client, Client
 
 
 # --- Configuration ---
@@ -55,7 +57,15 @@ Return ONLY valid JSON, no other text.\
 PROJECT_ROOT = os.path.abspath(os.path.join(BACKEND_ROOT, "..", ".."))
 
 PNG_PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "png-images")
-OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data", "albums.csv")
+
+
+def get_supabase_client() -> Client:
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print("Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+        sys.exit(1)
+    return create_client(url, key)
 
 
 def find_png_files(directory):
@@ -154,9 +164,27 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             os.unlink(cropped_path)
 
 
+def insert_albums_to_db(client: Client, albums: list[dict]) -> None:
+    if not albums:
+        print("No albums to insert.")
+        return
+    records = [
+        {
+            "title": a["title"],
+            "artist": a["artist"],
+            "release_year": a["release_year"] or None,
+            "label_name": a["label_name"] or None,
+            "cover_artists": a["cover_artists"] or None,
+        }
+        for a in albums
+    ]
+    response = client.table("albums").insert(records).execute()
+    print(f"Inserted {len(response.data)} albums into the database.")
+
+
 def main():
     """
-    Main function to extract album data from photos and create a CSV file.
+    Main function to extract album data from photos and insert into the database.
     """
     print("Starting album data extraction from PNG images...")
     png_files = find_png_files(PNG_PHOTOS_DIR)
@@ -176,37 +204,13 @@ def main():
             and album_info["title"].strip()
             and album_info["title"] != "Unknown Title"
         ):
-            album_info["source_file"] = os.path.basename(image_path)
             all_albums_data.append(album_info)
         else:
             print(f"Could not extract valid information from {image_path}")
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(
-            [
-                "title",
-                "artist",
-                "label_name",
-                "release_year",
-                "cover_artists",
-                "source_file",
-            ]
-        )
-        for album in all_albums_data:
-            writer.writerow(
-                [
-                    album["title"],
-                    album["artist"],
-                    album["label_name"],
-                    album["release_year"],
-                    album["cover_artists"],
-                    album["source_file"],
-                ]
-            )
-
+    db_client = get_supabase_client()
+    insert_albums_to_db(db_client, all_albums_data)
     print(f"\nSuccessfully extracted data for {len(all_albums_data)} albums.")
-    print(f"Output saved to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
