@@ -46,18 +46,18 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
         buttons = ""
         if spotify_link:
             buttons += f'''
-                    <a href="{spotify_link}" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 10px 24px; border-radius: 8px; margin: 0 6px;">
+                    <a href="{spotify_link}" class="streaming-btn" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
                       Listen on Spotify
                     </a>'''
         if apple_link:
             buttons += f'''
-                    <a href="{apple_link}" style="display: inline-block; background-color: #FC3C44; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 10px 24px; border-radius: 8px; margin: 0 6px;">
+                    <a href="{apple_link}" class="streaming-btn" style="display: inline-block; background-color: #FC3C44; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
                       Listen on Apple Music
                     </a>'''
         streaming_buttons = f'''
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td align="center" style="padding-top: 24px;">
+                  <td align="center" class="streaming-td" style="padding-top: 24px;">
                     {buttons}
                   </td>
                 </tr>
@@ -69,29 +69,60 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Your Jazz Recommendation</title>
+  <style>
+    @media only screen and (max-width: 600px) {{
+      .email-container {{
+        width: 100% !important;
+        border-radius: 0 !important;
+      }}
+      .email-header-td {{
+        padding: 24px !important;
+      }}
+      .email-body-td {{
+        padding: 24px !important;
+      }}
+      .email-footer-td {{
+        padding: 16px 24px !important;
+      }}
+      .album-cover img {{
+        width: 100% !important;
+        max-width: 260px !important;
+      }}
+      .streaming-btn {{
+        display: block !important;
+        margin: 6px auto !important;
+        min-width: 200px !important;
+        width: 80% !important;
+        max-width: 260px !important;
+      }}
+      .streaming-td {{
+        padding-top: 16px !important;
+      }}
+    }}
+  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 0;">
+<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 40px 20px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-container" style="max-width: 480px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
-            <td style="background-color: #18181b; padding: 32px 40px; text-align: center;">
+            <td class="email-header-td" style="background-color: #18181b; padding: 32px 40px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Jazzy</h1>
               <p style="margin: 8px 0 0; color: #a1a1aa; font-size: 14px;">Your jazz album recommendations</p>
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td style="padding: 40px;">
+            <td class="email-body-td" style="padding: 40px;">
               <h2 style="margin: 0 0 16px; color: #18181b; font-size: 22px; font-weight: 600;">Hey {user_name}!</h2>
               <p style="margin: 0 0 24px; color: #52525b; font-size: 15px; line-height: 1.6;">
                 We picked a jazz album just for you. Give it a listen and let the music take you somewhere new.
               </p>
               <!-- Album Card -->
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f5; border-radius: 8px;">
-                {'<tr><td style="padding: 24px 24px 0; text-align: center;"><img src="' + cover_image_url + '" alt="' + title + ' album cover" width="300" style="display: block; margin: 0 auto; border-radius: 8px; max-width: 100%; height: auto;" /></td></tr>' if cover_image_url else ''}
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-radius: 8px; border: 1px solid #e4e4e7;">
+                {'<tr class="album-cover"><td style="padding: 24px 24px 0; text-align: center;"><img src="' + cover_image_url + '" alt="' + title + ' album cover" width="260" style="display: block; margin: 0 auto; border-radius: 8px; max-width: 100%; height: auto;" /></td></tr>' if cover_image_url else ''}
                 <tr>
                   <td style="padding: 24px; text-align: center;">
                     <p style="margin: 0 0 4px; color: #18181b; font-size: 20px; font-weight: 700;">{title}</p>
@@ -105,7 +136,7 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px 40px; border-top: 1px solid #e4e4e7; text-align: center;">
+            <td class="email-footer-td" style="padding: 24px 40px; border-top: 1px solid #e4e4e7; text-align: center;">
               <p style="margin: 0; color: #a1a1aa; font-size: 12px;">Jazzy &mdash; Discover jazz, one album at a time.</p>
               {'<p style="margin: 8px 0 0; font-size: 12px;"><a href="' + unsubscribe_url + '" style="color: #a1a1aa; text-decoration: underline;">Unsubscribe</a></p>' if unsubscribe_url else ''}
             </td>
