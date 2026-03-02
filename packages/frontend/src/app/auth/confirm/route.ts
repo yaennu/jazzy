@@ -4,7 +4,7 @@ import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
 import { renderWelcomeEmail, type WelcomeAlbum } from '@/lib/welcome-email'
 
-async function sendWelcomeRecommendation(user: { email?: string; user_metadata?: { name?: string } }) {
+async function sendWelcomeRecommendation(user: { id: string; email?: string; user_metadata?: { name?: string } }) {
     const albumId = process.env.WELCOME_ALBUM_ID
     const resendKey = process.env.RESEND_API_KEY
     const fromEmail = process.env.FROM_EMAIL ?? 'Jazzy <onboarding@resend.dev>'
@@ -36,6 +36,10 @@ async function sendWelcomeRecommendation(user: { email?: string; user_metadata?:
         subject: `Welcome to Jazzy — your first pick: ${album.title} by ${album.artist}`,
         html,
     })
+
+    await admin
+        .from('recommendations')
+        .insert({ user_id: user.id, album_id: albumId })
 }
 
 export async function GET(request: NextRequest) {
