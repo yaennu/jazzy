@@ -1,6 +1,52 @@
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { type NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
+import { renderWelcomeEmail, type WelcomeAlbum } from '@/lib/welcome-email'
+
+async function sendWelcomeRecommendation(user: { id: string; email?: string; user_metadata?: { name?: string } }) {
+    const albumId = process.env.WELCOME_ALBUM_ID
+    const resendKey = process.env.RESEND_API_KEY
+    const fromEmail = process.env.FROM_EMAIL ?? 'Jazzy <onboarding@resend.dev>'
+
+    if (!albumId || !resendKey || !user.email) {
+        console.error('Welcome email skipped: missing', !albumId && 'WELCOME_ALBUM_ID', !resendKey && 'RESEND_API_KEY', !user.email && 'user email')
+        return
+    }
+
+    // Use a fresh server client with service role key to bypass RLS for the album lookup
+    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+    const admin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: album, error: albumError } = await admin
+        .from('albums')
+        .select('title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary')
+        .eq('album_id', albumId)
+        .single()
+
+    if (!album) {
+        console.error('Welcome email skipped: album not found for ID', albumId, albumError)
+        return
+    }
+
+    const userName = user.user_metadata?.name ?? user.email.split('@')[0]
+    const html = renderWelcomeEmail(userName, album as WelcomeAlbum)
+
+    const resend = new Resend(resendKey)
+    await resend.emails.send({
+        from: fromEmail,
+        to: user.email,
+        subject: `Welcome to Jazzy — your first pick: ${album.title} by ${album.artist}`,
+        html,
+    })
+
+    await admin
+        .from('recommendations')
+        .insert({ user_id: user.id, album_id: albumId })
+}
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
@@ -30,12 +76,17 @@ export async function GET(request: NextRequest) {
     if (token_hash && type) {
         const supabase = await createClient()
 
-        const { error } = await supabase.auth.verifyOtp({
+        const { data, error } = await supabase.auth.verifyOtp({
             type,
             token_hash,
         })
 
         if (!error) {
+            // Send a welcome recommendation only on initial account confirmation
+            if (type === 'signup' && data.user) {
+                sendWelcomeRecommendation(data.user).catch(console.error)
+            }
+
             redirectTo.searchParams.delete('next')
             return NextResponse.redirect(redirectTo)
         }
