@@ -9,7 +9,10 @@ async function sendWelcomeRecommendation(user: { id: string; email?: string; use
     const resendKey = process.env.RESEND_API_KEY
     const fromEmail = process.env.FROM_EMAIL ?? 'Jazzy <onboarding@resend.dev>'
 
-    if (!albumId || !resendKey || !user.email) return
+    if (!albumId || !resendKey || !user.email) {
+        console.error('Welcome email skipped: missing', !albumId && 'WELCOME_ALBUM_ID', !resendKey && 'RESEND_API_KEY', !user.email && 'user email')
+        return
+    }
 
     // Use a fresh server client with service role key to bypass RLS for the album lookup
     const { createClient: createAdminClient } = await import('@supabase/supabase-js')
@@ -18,13 +21,16 @@ async function sendWelcomeRecommendation(user: { id: string; email?: string; use
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data: album } = await admin
+    const { data: album, error: albumError } = await admin
         .from('albums')
         .select('title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary')
         .eq('album_id', albumId)
         .single()
 
-    if (!album) return
+    if (!album) {
+        console.error('Welcome email skipped: album not found for ID', albumId, albumError)
+        return
+    }
 
     const userName = user.user_metadata?.name ?? user.email.split('@')[0]
     const html = renderWelcomeEmail(userName, album as WelcomeAlbum)
