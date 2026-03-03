@@ -14,6 +14,9 @@ from supabase import create_client, Client
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 EXTRACT_SCRIPT = os.path.join(SCRIPT_DIR, "scripts", "extract_album_data.py")
+STREAMING_LINKS_SCRIPT = os.path.join(SCRIPT_DIR, "scripts", "add_streaming_links.py")
+ALBUM_COVERS_SCRIPT = os.path.join(SCRIPT_DIR, "scripts", "add_album_covers.py")
+ALBUM_SUMMARIES_SCRIPT = os.path.join(SCRIPT_DIR, "scripts", "add_album_summaries.py")
 
 
 def get_supabase_client() -> Client:
@@ -32,17 +35,17 @@ def is_albums_table_empty(client: Client) -> bool:
     return response.count == 0
 
 
-def run_extract_script() -> None:
-    print("Running album data extraction script...")
+def run_script(script_path: str, label: str) -> None:
+    print(f"Running {label}...")
     result = subprocess.run(
-        [sys.executable, EXTRACT_SCRIPT],
+        [sys.executable, script_path],
         capture_output=True,
         text=True,
     )
     if result.stdout:
         print(result.stdout)
     if result.returncode != 0:
-        print(f"Extract script failed:\n{result.stderr}")
+        print(f"{label} failed:\n{result.stderr}")
         sys.exit(1)
 
 
@@ -54,8 +57,11 @@ def main():
         print("Albums table already has data. Skipping seed.")
         return
 
-    print("Albums table is empty. Running extraction script to seed database...")
-    run_extract_script()
+    print("Albums table is empty. Running extraction and enrichment scripts to seed database...")
+    run_script(EXTRACT_SCRIPT, "album data extraction")
+    run_script(STREAMING_LINKS_SCRIPT, "streaming links lookup")
+    run_script(ALBUM_COVERS_SCRIPT, "album covers lookup")
+    run_script(ALBUM_SUMMARIES_SCRIPT, "album summaries generation")
     print("Seeding complete.")
 
 
