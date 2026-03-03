@@ -57,16 +57,15 @@ def query_perplexity(api_key: str, prompt: str) -> str | None:
         "messages": [
             {
                 "role": "system",
-                "content": (
-                    "You are a knowledgeable jazz music writer. "
-                    "Write factual, engaging summaries in plain prose. "
-                    f"Keep each summary to {SUMMARY_TARGET_WORDS} words. "
-                    "Do not use bullet points or headings. Do not include citations or footnotes. "
-                    "Link every person, musician, band, record label, album and record"
-                    'mentioned in your text as an HTML anchor tag (<a href="URL">name</a>) '
-                    "pointing to their Wikipedia page. Only use URLs you are confident exist."
-                    "Do not use [] for source referencing."
-                ),
+                "content": f"""\
+You are a knowledgeable jazz music writer. \
+Write factual, engaging summaries in plain prose. \
+Keep each summary to {SUMMARY_TARGET_WORDS} words. \
+Do not use bullet points or headings. Do not include citations or footnotes. \
+Link every person, musician, band, record label, album and record \
+mentioned in your text as an HTML anchor tag (<a href="URL">name</a>) \
+pointing to their Wikipedia page. Only use URLs you are confident exist. \
+Do not use [] for source referencing.""",
             },
             {"role": "user", "content": prompt},
         ],
@@ -118,11 +117,10 @@ def main():
         updates: dict = {}
 
         if album.get("artist_summary") is None:
-            prompt = (
-                f"Write a {SUMMARY_TARGET_WORDS}-word biographical summary of the jazz musician "
-                f'"{artist}". Cover their background, musical style, and significance in jazz history. '
-                "Search for accurate information from Wikipedia and music reference sources."
-            )
+            prompt = f"""\
+Write a {SUMMARY_TARGET_WORDS}-word biographical summary of the jazz musician \
+"{artist}". Cover their background, musical style, and significance in jazz history. \
+Search for accurate information from Wikipedia and music reference sources."""
             summary = query_perplexity(api_key, prompt)
             if summary:
                 updates["artist_summary"] = summary
@@ -137,17 +135,18 @@ def main():
             )
             artist_context = ""
             if artist_summary:
-                artist_context = (
-                    f"\n\nThe reader will already see this artist bio alongside the album summary, "
-                    f'so do NOT repeat biographical details:\n"{artist_summary}"'
-                )
-            prompt = (
-                f"Write a {SUMMARY_TARGET_WORDS}-word summary of the jazz album "
-                f'"{title}"{year_str} by {artist}. Cover its musical style, recording context, '
-                "key tracks, and why it matters in the jazz canon. "
-                "Search for accurate information from Wikipedia and music reference sources."
-                f"{artist_context}"
-            )
+                artist_context = f"""
+
+The reader will already see this artist bio alongside the album summary, \
+so do NOT repeat biographical details:
+\"{artist_summary}\""""
+            prompt = f"""\
+Write a {SUMMARY_TARGET_WORDS}-word summary of the jazz album \
+"{title}"{year_str} by {artist}. Cover its musical style, recording context, \
+key tracks, and why it matters in the jazz canon. \
+Search for accurate information from Wikipedia and music reference sources. \
+If you do not find any specific information about the above mentioned jazz album, \
+then write something about his general musical style.{artist_context}"""
             summary = query_perplexity(api_key, prompt)
             if summary:
                 updates["album_summary"] = summary
