@@ -20,7 +20,12 @@ CREATE TABLE albums (
     release_year INT,
     cover_image_url TEXT,
     streaming_link_spotify TEXT,
-    streaming_link_apple TEXT
+    streaming_link_apple TEXT,
+    artist_summary TEXT,
+    album_summary TEXT,
+    label_name VARCHAR(255),
+    cover_artists TEXT,
+    calendar_order INTEGER
 );
 
 CREATE TABLE recommendations (
@@ -113,6 +118,31 @@ BEGIN
   UPDATE public.users
   SET subscription_status = 'inactive'
   WHERE unsubscribe_token = p_token;
+
+  RETURN 'success';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- RPC function for authenticated account deletion
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.delete_account()
+RETURNS TEXT AS $$
+DECLARE
+  v_uid UUID;
+BEGIN
+  v_uid := auth.uid();
+
+  IF v_uid IS NULL THEN
+    RETURN 'not_authenticated';
+  END IF;
+
+  -- Delete from public.users (cascades to recommendations)
+  DELETE FROM public.users WHERE user_id = v_uid;
+
+  -- Delete from auth.users
+  DELETE FROM auth.users WHERE id = v_uid;
 
   RETURN 'success';
 END;
