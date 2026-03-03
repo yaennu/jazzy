@@ -41,7 +41,7 @@ The app will be available at `http://localhost:3000`.
    uv run python src/main.py
    ```
 
-On startup, the backend checks if the `albums` table is empty. If so, it seeds it from `data/albums.csv`. If the table already has data, it skips seeding.
+On startup, the backend checks if the `albums` table is empty. If so, it runs the full seeding pipeline: extracting album data from images, looking up streaming links, fetching cover art, and generating LLM summaries. If the table already has data, it skips seeding.
 
 ### VS Code Tasks
 
@@ -95,7 +95,7 @@ npx supabase db reset --linked
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
 2. Go to **Actions > Seed Database > Run workflow**
-3. The workflow checks if the `albums` table is empty and seeds it from `data/albums.csv`
+3. The workflow checks if the `albums` table is empty and runs the full seeding pipeline (extraction, streaming links, covers, summaries)
 
 ### Email Recommendations (GitHub Actions)
 
@@ -111,43 +111,43 @@ The script checks each user's `newsletter_frequency` preference (daily/weekly/mo
 
 ## Backend Scripts
 
-### Add Streaming Links
-
-This script looks up Spotify and Apple Music links for albums in the database that are missing streaming links, using the Spotify Web API and iTunes Search API.
-
-1.  Navigate to the backend package directory:
-    ```bash
-    cd packages/backend
-    ```
-2.  Ensure your `.env` file contains the required credentials (see `.env.example` for `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and Supabase credentials)
-3.  Run the script:
-    ```bash
-    uv run python src/scripts/add_streaming_links.py
-    ```
-
-### Add Album Covers
-
-This script looks up album cover art for albums that have an Apple Music streaming link but no cover image, using the iTunes Search API.
-
-1.  Navigate to the backend package directory:
-    ```bash
-    cd packages/backend
-    ```
-2.  Run the script:
-    ```bash
-    uv run python src/scripts/add_album_covers.py
-    ```
+All scripts are run from `packages/backend/`. The seeding script (`main.py`) runs them all in sequence automatically, but they can also be run individually:
 
 ### Extract Album Data
 
-This script extracts album information from HEIC photos in the `data/heic-images/` directory using OCR and outputs to `data/albums.csv`.
+Extracts album information from PNG images in `data/png-images/` using Google Gemini 2.0 Flash vision model and inserts records into the database.
 
-1.  Navigate to the backend package directory:
-    ```bash
-    cd packages/backend
-    ```
-2.  Run the script:
-    ```bash
-    uv run python src/scripts/extract_album_data.py
-    ```
+```bash
+uv run python src/scripts/extract_album_data.py
+```
+
+Requires `GEMINI_API_KEY` in `.env.local`.
+
+### Add Streaming Links
+
+Looks up Spotify and Apple Music links for albums missing streaming links, using the Spotify Web API and iTunes Search API.
+
+```bash
+uv run python src/scripts/add_streaming_links.py
+```
+
+Requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env.local` (see `.env.example`).
+
+### Add Album Covers
+
+Looks up album cover art for albums that have an Apple Music link but no cover image, using the iTunes Search API.
+
+```bash
+uv run python src/scripts/add_album_covers.py
+```
+
+### Add Album Summaries
+
+Generates artist and album summaries using the Perplexity API (search-augmented LLM) with Wikipedia links.
+
+```bash
+uv run python src/scripts/add_album_summaries.py
+```
+
+Requires `PERPLEXITY_API_KEY` in `.env.local`.
     
