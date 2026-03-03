@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import tempfile
+from datetime import datetime
 
 from dotenv import load_dotenv
 from google import genai
@@ -33,18 +34,24 @@ MODEL_NAME = "gemini-2.0-flash"
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 EXTRACTION_PROMPT = """\
-This is a photo of a jazz calendar page. In the bottom-right area below the album \
-cover, there are a few lines of small printed text. The text follows this format:
+This is a photo of a jazz calendar page.
+
+In the bottom-LEFT corner, there is a calendar date in the format "DD MON" \
+(e.g. "02 JAN", "14 FEB"). Read this date.
+
+In the bottom-RIGHT area below the album cover, there are a few lines of small \
+printed text. The text follows this format:
   Line 1: Artist name
   Line 2: Album title
   Line 3: Record label, release year
   Lines 4+: Cover artist(s) — one or more lines listing who created the cover artwork
 
-IMPORTANT: Read ONLY the small printed text in the bottom-right area. Do NOT read \
-text from the album cover artwork itself. The release year is the 4-digit year next \
-to the record label name (e.g. "Blue Note Records, 1975"), NOT any calendar date.
+IMPORTANT: Read ONLY the small printed text in the bottom-right area for album info. \
+Do NOT read text from the album cover artwork itself. The release year is the 4-digit \
+year next to the record label name (e.g. "Blue Note Records, 1975"), NOT the calendar date.
 
 Return ONLY a JSON object with these keys:
+- "calendar_date": the calendar date from the bottom-left corner (e.g. "02 JAN")
 - "artist": the artist or band name (from line 1 of the text area)
 - "title": the album title (from line 2 of the text area)
 - "label_name": the record label name (from line 3, e.g. "Blue Note Records")
@@ -95,6 +102,15 @@ def _parse_json_from_response(text):
             pass
 
     return None
+
+
+def _calendar_date_to_day_of_year(date_str: str) -> int | None:
+    """Convert a calendar date like '02 JAN' to a day-of-year integer (e.g. 2)."""
+    try:
+        dt = datetime.strptime(date_str.strip(), "%d %b")
+        return dt.timetuple().tm_yday
+    except ValueError:
+        return None
 
 
 def _crop_text_area(image_path):
@@ -148,12 +164,16 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             year_match = re.search(r"\d{4}", release_year)
             release_year = int(year_match.group()) if year_match else 0
 
+        calendar_date = str(data.get("calendar_date", "")).strip().upper()
+        calendar_order = _calendar_date_to_day_of_year(calendar_date) if calendar_date else None
+
         return {
             "title": str(data.get("title", "Unknown Title")).strip(),
             "artist": str(data.get("artist", "Unknown Artist")).strip(),
             "label_name": str(data.get("label_name", "")).strip(),
             "release_year": int(release_year),
             "cover_artists": str(data.get("cover_artists", "")).strip(),
+            "calendar_order": calendar_order,
         }
 
     except Exception as e:
@@ -175,6 +195,7 @@ def insert_albums_to_db(client: Client, albums: list[dict]) -> None:
             "release_year": a["release_year"] or None,
             "label_name": a["label_name"] or None,
             "cover_artists": a["cover_artists"] or None,
+            "calendar_order": a.get("calendar_order"),
         }
         for a in albums
     ]

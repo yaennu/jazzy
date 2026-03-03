@@ -6,7 +6,6 @@ to decide who gets an email today.
 
 import os
 import sys
-import random
 from datetime import datetime, timezone
 
 import resend
@@ -70,8 +69,26 @@ def get_eligible_users(client: Client) -> list[dict]:
     return response.data
 
 
+def _get_last_sent_order(client: Client, user_id: str) -> int | None:
+    """Get the calendar_order of the most recently sent album for a user."""
+    response = (
+        client.table("recommendations")
+        .select("album_id, albums(calendar_order)")
+        .eq("user_id", user_id)
+        .order("sent_date", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not response.data:
+        return None
+    album_data = response.data[0].get("albums")
+    if album_data:
+        return album_data.get("calendar_order")
+    return None
+
+
 def get_unsent_album(client: Client, user_id: str) -> dict | None:
-    """Pick a random album that hasn't been recommended to this user yet."""
+    """Pick the next album in calendar_order that hasn't been sent to this user."""
     # Get album IDs already sent to this user
     sent_response = (
         client.table("recommendations")
@@ -81,7 +98,7 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
     )
     sent_ids = [r["album_id"] for r in sent_response.data]
 
-    # Get all albums
+    # Get all albums ordered by calendar_order
     albums_response = client.table("albums").select("*").execute()
     all_albums = albums_response.data
 
@@ -96,7 +113,20 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
     if not unsent:
         return None
 
-    return random.choice(unsent)
+    # Sort: albums with calendar_order first (ascending), NULLs last
+    unsent.sort(key=lambda a: (a.get("calendar_order") is None, a.get("calendar_order") or 0))
+
+    last_order = _get_last_sent_order(client, user_id)
+
+    if last_order is not None:
+        # Find the first unsent album with calendar_order > last_order
+        for album in unsent:
+            order = album.get("calendar_order")
+            if order is not None and order > last_order:
+                return album
+
+    # No previous recommendation, or wrap-around: return the first in sequence
+    return unsent[0]
 
 
 def send_email(user: dict, album: dict) -> bool:
