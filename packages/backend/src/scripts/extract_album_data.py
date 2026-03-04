@@ -107,7 +107,7 @@ def _parse_json_from_response(text):
 def _calendar_date_to_day_of_year(date_str: str) -> int | None:
     """Convert a calendar date like '02 JAN' to a day-of-year integer (e.g. 2)."""
     try:
-        dt = datetime.strptime(date_str.strip(), "%d %b")
+        dt = datetime.strptime(f"{date_str.strip()} 2000", "%d %b %Y")
         return dt.timetuple().tm_yday
     except ValueError:
         return None
@@ -216,8 +216,9 @@ def main():
 
     all_albums_data = []
 
-    for image_path in png_files:
-        print(f"Processing {image_path}...")
+    total = len(png_files)
+    for i, image_path in enumerate(png_files, 1):
+        print(f"Processing {i}/{total}: {os.path.basename(image_path)}...")
         album_info = extract_album_info_from_image(image_path)
 
         if (
