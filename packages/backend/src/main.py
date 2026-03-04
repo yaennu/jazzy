@@ -37,15 +37,9 @@ def is_albums_table_empty(client: Client) -> bool:
 
 def run_script(script_path: str, label: str) -> None:
     print(f"Running {label}...")
-    result = subprocess.run(
-        [sys.executable, script_path],
-        capture_output=True,
-        text=True,
-    )
-    if result.stdout:
-        print(result.stdout)
+    result = subprocess.run([sys.executable, script_path])
     if result.returncode != 0:
-        print(f"{label} failed:\n{result.stderr}")
+        print(f"{label} failed (exit code {result.returncode})")
         sys.exit(1)
 
 
