@@ -28,6 +28,7 @@ jazzy/
 │               ├── add_streaming_links.py # Spotify & Apple Music link lookup
 │               ├── add_album_covers.py    # Album cover art lookup (iTunes)
 │               └── add_album_summaries.py # LLM-generated artist/album summaries (Perplexity)
+├── specs/                 # Behavior specs (spec-driven development)
 ├── supabase/
 │   └── migrations/        # SQL migration files
 ├── data/                  # Album data (CSV, images)
@@ -123,7 +124,53 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 - Database seeding via GitHub Actions workflow
 
 **Not yet implemented:**
-- Tests
+- Comprehensive test coverage (framework is set up, initial tests exist)
+
+## Spec-Driven Development
+
+This project uses spec-driven development. Behavior is defined in spec files before writing tests and implementation.
+
+### Workflow
+
+1. **Write a spec** — Create or update a markdown file in `specs/` describing the expected behavior
+2. **Write tests** — Create test files that reference the spec (include a comment like `Spec: auth.md > Login page structure`)
+3. **Implement** — Write the code to make the tests pass
+4. **Verify** — Run tests locally before pushing
+
+### Spec files
+
+Specs live in `specs/` at the project root. Each file covers a feature area:
+
+- `specs/auth.md` — User authentication flows
+- `specs/recommendations.md` — Email recommendation logic
+- `specs/album-pipeline.md` — Album data seeding pipeline
+
+Specs use a simple Given/When/Then format. New features should get a spec file (or a new section in an existing one) before implementation begins.
+
+### Running tests
+
+```bash
+# Frontend (Vitest + React Testing Library)
+npm test -w frontend            # single run
+npm run test:watch -w frontend  # watch mode
+
+# Backend (pytest)
+cd packages/backend
+uv run pytest -m "not slow" -v  # skip slow integration tests
+uv run pytest -v                # all tests
+```
+
+### Test file conventions
+
+- **Frontend:** `src/**/*.spec.{ts,tsx}` (co-located with source in `__tests__/` directories)
+- **Backend:** `tests/test_*.py` (in `packages/backend/tests/`)
+- Each test file should reference the spec it verifies in a docstring or comment
+
+### CI
+
+Tests run automatically on PRs and pushes to `main` via `.github/workflows/test.yml`. The pipeline runs:
+- Frontend: lint → test → build
+- Backend: pytest (excluding slow tests)
 
 ## Key Files
 
@@ -143,4 +190,6 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `packages/frontend/src/email-templates/` | Supabase email templates (signup confirmation, password reset) |
 | `.github/workflows/send-recommendations.yml` | Cron workflow for daily email recommendations |
 | `.github/workflows/seed-database.yml` | Manual workflow for database seeding |
+| `.github/workflows/test.yml` | CI workflow: lint, test, build on PRs and pushes to main |
+| `specs/` | Behavior spec files for spec-driven development |
 | `docs/folder-structure.md` | Architecture rationale and structure proposal |
