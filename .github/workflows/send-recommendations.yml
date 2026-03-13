@@ -15,12 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: pip install supabase python-dotenv resend
+        run: uv sync --frozen --no-dev
 
       - name: Send recommendation emails
         env:
@@ -29,4 +27,4 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-        run: python src/send_recommendations.py
+        run: uv run python src/send_recommendations.py

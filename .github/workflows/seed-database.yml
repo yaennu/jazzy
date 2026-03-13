@@ -13,15 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: pip install supabase python-dotenv
+        run: uv sync --frozen --no-dev
 
       - name: Seed albums table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python src/main.py
+        run: uv run python src/main.py

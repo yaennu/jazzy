@@ -1,88 +1,88 @@
 """
-Extracts album information from HEIC photos and generates a CSV file.
+Extracts album information from PNG images and inserts records into the database.
 
-This script first converts all .HEIC images in a specified directory to PNG format,
-then processes the PNG images to extract album title, artist, and release year
-using a local vision language model via Ollama, and finally saves the structured
-data into a CSV file.
+Processes PNG images to extract album title, artist, release year, record label,
+and cover artists using Google Gemini 2.0 Flash via the Gen AI SDK, and inserts
+the structured data directly into the albums table.
+
+Requires GEMINI_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY to be set
+in packages/backend/.env.local (set PRODUCTION=True to use .env.production)
 """
 
-import csv
 import json
 import os
 import re
+import sys
 import tempfile
+from datetime import datetime
 
-import pillow_heif  # noqa: F401 — registers HEIF plugin with Pillow on import
-from ollama import chat
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 from PIL import Image
+from supabase import create_client, Client
 
 
 # --- Configuration ---
-# Vision model used for OCR extraction. Swap to a larger model for better accuracy:
-#   granite3.2-vision  (~2 GB) — compact, fast
-#   llama3.2-vision    (~7 GB) — higher accuracy
-MODEL_NAME = "granite3.2-vision"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
+if os.environ.get("PRODUCTION") == "True":
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
+
+MODEL_NAME = "gemini-2.0-flash"
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 EXTRACTION_PROMPT = """\
-This is a photo of a jazz calendar page. In the bottom-right area below the album \
-cover, there are a few lines of small printed text. The text follows this format:
+This is a photo of a jazz calendar page.
+
+In the bottom-LEFT corner, there is a calendar date in the format "DD MON" \
+(e.g. "02 JAN", "14 FEB"). Read this date.
+
+In the bottom-RIGHT area below the album cover, there are a few lines of small \
+printed text. The text follows this format:
   Line 1: Artist name
   Line 2: Album title
   Line 3: Record label, release year
+  Lines 4+: Cover artist(s) — one or more lines listing who created the cover artwork
 
-IMPORTANT: Read ONLY the small printed text in the bottom-right area. Do NOT read \
-text from the album cover artwork itself. The release year is the 4-digit year next \
-to the record label name (e.g. "Blue Note Records, 1975"), NOT any calendar date.
+IMPORTANT: Read ONLY the small printed text in the bottom-right area for album info. \
+Do NOT read text from the album cover artwork itself. The release year is the 4-digit \
+year next to the record label name (e.g. "Blue Note Records, 1975"), NOT the calendar date.
 
 Return ONLY a JSON object with these keys:
+- "calendar_date": the calendar date from the bottom-left corner (e.g. "02 JAN")
 - "artist": the artist or band name (from line 1 of the text area)
 - "title": the album title (from line 2 of the text area)
+- "label_name": the record label name (from line 3, e.g. "Blue Note Records")
 - "release_year": the original album release year as an integer (from line 3)
+- "cover_artists": all remaining lines after line 3, joined with ", " as a single string
 
 Return ONLY valid JSON, no other text.\
 """
 
-# Construct absolute paths from the script's location to make it runnable from anywhere
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", "..", ".."))
+PROJECT_ROOT = os.path.abspath(os.path.join(BACKEND_ROOT, "..", ".."))
 
-HEIC_PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "heic-images")
 PNG_PHOTOS_DIR = os.path.join(PROJECT_ROOT, "data", "png-images")
-OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data", "albums.csv")
 
 
-def convert_heic_to_png(source_dir, dest_dir):
-    """Converts all HEIC images in the source directory to PNG format in the destination directory."""
-    print(f"Starting HEIC to PNG conversion from {source_dir} to {dest_dir}...")
-    os.makedirs(dest_dir, exist_ok=True)
-    heic_files = [f for f in os.listdir(source_dir) if f.upper().endswith(".HEIC")]
-
-    if not heic_files:
-        print(f"No .HEIC files found in {source_dir}")
-        return
-
-    for filename in heic_files:
-        heic_path = os.path.join(source_dir, filename)
-        png_filename = os.path.splitext(filename)[0] + ".png"
-        png_path = os.path.join(dest_dir, png_filename)
-
-        try:
-            heif_file = pillow_heif.read_heif(heic_path)
-            image = heif_file[0].to_pillow()
-            image.save(png_path, "PNG")
-            print(f"Converted {heic_path} to {png_path}")
-        except Exception as e:
-            print(f"Could not convert {heic_path}: {e}")
-    print("HEIC to PNG conversion completed.")
+def get_supabase_client() -> Client:
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print("Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+        sys.exit(1)
+    return create_client(url, key)
 
 
 def find_png_files(directory):
     """Finds all .PNG files in the specified directory."""
-    png_files = []
-    for filename in os.listdir(directory):
-        if filename.upper().endswith(".PNG"):
-            png_files.append(os.path.join(directory, filename))
+    png_files = sorted(
+        os.path.join(directory, f)
+        for f in os.listdir(directory)
+        if f.upper().endswith(".PNG")
+    )
     return png_files
 
 
@@ -105,6 +105,15 @@ def _parse_json_from_response(text):
     return None
 
 
+def _calendar_date_to_day_of_year(date_str: str) -> int | None:
+    """Convert a calendar date like '02 JAN' to a day-of-year integer (e.g. 2)."""
+    try:
+        dt = datetime.strptime(f"{date_str.strip()} 2000", "%d %b %Y")
+        return dt.timetuple().tm_yday
+    except ValueError:
+        return None
+
+
 def _crop_text_area(image_path):
     """Crops to the bottom portion of the image where the text metadata lives.
 
@@ -113,8 +122,8 @@ def _crop_text_area(image_path):
     """
     img = Image.open(image_path)
     width, height = img.size
-    # The text area is always in the bottom ~35% of the calendar page
-    cropped = img.crop((0, int(height * 0.65), width, height))
+    # The text area is always in the bottom ~50% of the calendar page
+    cropped = img.crop((0, int(height * 0.5), width, height))
     # Upscale 2x for better character recognition on small text
     cropped = cropped.resize(
         (cropped.width * 2, cropped.height * 2), Image.Resampling.LANCZOS
@@ -131,18 +140,19 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
     cropped_path = None
     try:
         cropped_path = _crop_text_area(image_path)
-        response = chat(
+
+        with open(cropped_path, "rb") as f:
+            image_bytes = f.read()
+
+        response = client.models.generate_content(
             model=model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": EXTRACTION_PROMPT,
-                    "images": [cropped_path],
-                }
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+                EXTRACTION_PROMPT,
             ],
         )
 
-        raw_text = response.message.content
+        raw_text = response.text
         data = _parse_json_from_response(raw_text)
 
         if data is None:
@@ -155,10 +165,17 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             year_match = re.search(r"\d{4}", release_year)
             release_year = int(year_match.group()) if year_match else 0
 
+        calendar_date = str(data.get("calendar_date", "")).strip().upper()
+        calendar_order = _calendar_date_to_day_of_year(calendar_date) if calendar_date else None
+
         return {
             "title": str(data.get("title", "Unknown Title")).strip(),
             "artist": str(data.get("artist", "Unknown Artist")).strip(),
+            "label_name": str(data.get("label_name", "")).strip(),
             "release_year": int(release_year),
+            "cover_artists": str(data.get("cover_artists", "")).strip(),
+            "calendar_order": calendar_order,
+            "image_filename": None,  # filled in by main()
         }
 
     except Exception as e:
@@ -169,39 +186,99 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             os.unlink(cropped_path)
 
 
+EXTRACTION_COLS = ["title", "artist", "release_year", "label_name", "cover_artists", "calendar_order", "image_filename"]
+
+
+def upsert_albums_to_db(supabase: Client, albums: list[dict]) -> None:
+    if not albums:
+        print("No albums to upsert.")
+        return
+
+    inserted = 0
+    updated = 0
+    skipped = 0
+
+    for a in albums:
+        calendar_order = a.get("calendar_order")
+        if calendar_order is None:
+            print(f"  Skipping album '{a.get('title')}': no calendar_order.")
+            skipped += 1
+            continue
+
+        existing = (
+            supabase.table("albums")
+            .select(", ".join(EXTRACTION_COLS))
+            .eq("calendar_order", calendar_order)
+            .execute()
+        )
+
+        record = {
+            "title": a["title"],
+            "artist": a["artist"],
+            "release_year": a["release_year"] or None,
+            "label_name": a["label_name"] or None,
+            "cover_artists": a["cover_artists"] or None,
+            "calendar_order": calendar_order,
+            "image_filename": a.get("image_filename"),
+        }
+
+        if not existing.data:
+            supabase.table("albums").insert(record).execute()
+            inserted += 1
+        else:
+            row = existing.data[0]
+            null_cols = {k: v for k, v in record.items() if row.get(k) is None and v is not None}
+            if not null_cols:
+                skipped += 1
+            else:
+                supabase.table("albums").update(null_cols).eq("calendar_order", calendar_order).execute()
+                updated += 1
+
+    print(f"Upsert complete: {inserted} inserted, {updated} updated, {skipped} skipped.")
+
+
 def main():
     """
-    Main function to extract album data from photos and create a CSV file.
+    Main function to extract album data from photos and insert into the database.
     """
-    # First, convert HEIC images to PNG
-    convert_heic_to_png(HEIC_PHOTOS_DIR, PNG_PHOTOS_DIR)
-
-    print("\nStarting album data extraction from PNG images...")
+    print("Starting album data extraction from PNG images...")
     png_files = find_png_files(PNG_PHOTOS_DIR)
 
     if not png_files:
         print(f"No .PNG files found in {PNG_PHOTOS_DIR}")
         return
 
+    db_client = get_supabase_client()
+
+    existing_rows = db_client.table("albums").select(", ".join(EXTRACTION_COLS)).execute()
+    existing_by_filename = {row["image_filename"]: row for row in existing_rows.data if row.get("image_filename")}
+
     all_albums_data = []
 
-    for image_path in png_files:
-        print(f"Processing {image_path}...")
+    total = len(png_files)
+    for i, image_path in enumerate(png_files, 1):
+        filename = os.path.basename(image_path)
+        existing = existing_by_filename.get(filename)
+
+        if existing and all(existing.get(col) is not None for col in EXTRACTION_COLS):
+            print(f"Skipping {i}/{total}: {filename} (already complete in DB)")
+            continue
+
+        print(f"Processing {i}/{total}: {filename}...")
         album_info = extract_album_info_from_image(image_path)
 
-        if album_info and album_info["title"] != "Unknown Title":
+        if (
+            album_info
+            and album_info["title"].strip()
+            and album_info["title"] != "Unknown Title"
+        ):
+            album_info["image_filename"] = filename
             all_albums_data.append(album_info)
         else:
             print(f"Could not extract valid information from {image_path}")
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["title", "artist", "release_year"])
-        for album in all_albums_data:
-            writer.writerow([album["title"], album["artist"], album["release_year"]])
-
+    upsert_albums_to_db(db_client, all_albums_data)
     print(f"\nSuccessfully extracted data for {len(all_albums_data)} albums.")
-    print(f"Output saved to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":

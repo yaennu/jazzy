@@ -4,6 +4,7 @@ Uses the iTunes Search API to find artwork URLs.
 """
 
 import os
+import re
 import sys
 import time
 
@@ -15,12 +16,14 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
+ITUNES_LOOKUP_URL = "https://itunes.apple.com/lookup"
 ARTWORK_SIZE = "600x600"
 
 
 def get_supabase_client() -> Client:
     load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
-    load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+    if os.environ.get("PRODUCTION") == "True":
+        load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
@@ -83,6 +86,32 @@ def _match_artwork(results: list[dict], title: str, artist: str, release_year: i
     return exact_match or fuzzy_match
 
 
+def _extract_collection_id(apple_music_url: str) -> str | None:
+    """Extract the numeric collection ID from an Apple Music URL.
+
+    Example: 'https://music.apple.com/us/album/the-essence-of-errol-garner/190114850?uo=4'
+    returns '190114850'.
+    """
+    match = re.search(r"/(\d+)(?:\?|$)", apple_music_url)
+    return match.group(1) if match else None
+
+
+def _lookup_cover_by_id(collection_id: str) -> str | None:
+    """Look up album artwork directly via iTunes Lookup API using collection ID."""
+    try:
+        response = requests.get(ITUNES_LOOKUP_URL, params={"id": collection_id})
+        if response.status_code != 200:
+            return None
+        results = response.json().get("results", [])
+        for result in results:
+            artwork_url = result.get("artworkUrl100")
+            if artwork_url:
+                return artwork_url.replace("100x100", ARTWORK_SIZE)
+        return None
+    except Exception:
+        return None
+
+
 def search_cover(title: str, artist: str, release_year: int | None) -> str | None:
     """Search iTunes for album cover art. Returns artwork URL or None."""
     # Try title + artist first
@@ -104,7 +133,7 @@ def search_cover(title: str, artist: str, release_year: int | None) -> str | Non
 def get_albums_missing_covers(client: Client) -> list[dict]:
     response = (
         client.table("albums")
-        .select("album_id, title, artist, release_year")
+        .select("album_id, title, artist, release_year, streaming_link_apple")
         .is_("cover_image_url", "null")
         .not_.is_("streaming_link_apple", "null")
         .execute()
@@ -130,9 +159,24 @@ def main():
 
         print(f"  {title} — {artist}")
 
-        cover_url = search_cover(title, artist, release_year)
+        cover_url = None
+
+        # Try direct iTunes lookup via collection ID from Apple Music URL
+        apple_url = album.get("streaming_link_apple")
+        if apple_url:
+            collection_id = _extract_collection_id(apple_url)
+            if collection_id:
+                cover_url = _lookup_cover_by_id(collection_id)
+                if cover_url:
+                    print(f"    Cover (via lookup): {cover_url}")
+
+        # Fall back to search
+        if not cover_url:
+            cover_url = search_cover(title, artist, release_year)
+            if cover_url:
+                print(f"    Cover: {cover_url}")
+
         if cover_url:
-            print(f"    Cover: {cover_url}")
             client.table("albums").update({"cover_image_url": cover_url}).eq(
                 "album_id", album["album_id"]
             ).execute()

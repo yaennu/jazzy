@@ -98,7 +98,6 @@ ipython_config.py
 #   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
-#uv.lock
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
@@ -214,6 +213,7 @@ node_modules
 # kilocode
 mcp.json
 supabase/.temp
+packages/backend/supabase/
 
 # MacOS
 .DS_Store
@@ -222,5 +222,8 @@ supabase/.temp
 .claude/settings.local.json
 
 # Data
-data/heic-images/IMG_*.HEIC
 data/png-images/IMG_*.png
+data/albums.csv
+temp.md
+TODO.md
+temp/

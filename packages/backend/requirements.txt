@@ -1,7 +1,0 @@
-pillow-heif
-Pillow
-ollama
-requests
-resend
-supabase
-python-dotenv

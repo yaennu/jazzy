@@ -20,13 +20,14 @@ jazzy/
 │   │       └── email-templates/ # Email HTML templates
 │   └── backend/           # Python backend scripts
 │       └── src/
-│           ├── main.py            # Album seeding script
+│           ├── main.py            # Album seeding orchestrator (runs all scripts in sequence)
 │           ├── email_template.py  # Recommendation email HTML template
 │           ├── send_recommendations.py  # Email sending script (used by GitHub Actions)
 │           └── scripts/
-│               ├── extract_album_data.py  # OCR-based album data extraction
+│               ├── extract_album_data.py  # Vision-based album data extraction (Gemini)
 │               ├── add_streaming_links.py # Spotify & Apple Music link lookup
-│               └── add_album_covers.py    # Album cover art lookup (iTunes)
+│               ├── add_album_covers.py    # Album cover art lookup (iTunes)
+│               └── add_album_summaries.py # LLM-generated artist/album summaries (Perplexity)
 ├── supabase/
 │   └── migrations/        # SQL migration files
 ├── data/                  # Album data (CSV, images)
@@ -38,7 +39,7 @@ jazzy/
 ## Tech Stack
 
 - **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript
-- **Backend:** Python 3.13+
+- **Backend:** Python 3.13+ (managed with uv)
 - **Database:** PostgreSQL via Supabase
 - **Email:** Resend (via GitHub Actions cron)
 - **UI Components:** shadcn/ui + Tailwind CSS v4
@@ -50,7 +51,7 @@ jazzy/
 Three core tables in PostgreSQL (see `supabase/migrations/`):
 
 - **users** - user accounts with email, password hash, subscription status, email verification
-- **albums** - jazz album catalog with title, artist, release year, cover image, streaming links
+- **albums** - jazz album catalog with title, artist, release year, cover image, streaming links, LLM-generated summaries
 - **recommendations** - join table linking users to recommended albums with sent date
 
 All primary keys are UUIDs (via `uuid-ossp` extension). Foreign keys use `ON DELETE CASCADE`. Timestamps use `TIMESTAMP WITH TIME ZONE`.
@@ -61,10 +62,12 @@ All primary keys are UUIDs (via `uuid-ossp` extension). Foreign keys use `ON DEL
 
 - Node.js 18+
 - npm
-- Python 3.13+ (for backend scripts)
+- [uv](https://docs.astral.sh/uv/) (for backend scripts, manages Python version and dependencies)
 - Supabase CLI
 
 ### Supabase
+
+**Important:** All Supabase CLI commands (`npx supabase ...`) must be run from the project root (`jazzy/`), not from subdirectories like `packages/backend/`. The CLI looks for the `supabase/` directory relative to the current working directory.
 
 ```bash
 npm install supabase --save-dev
@@ -91,6 +94,10 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 - All timestamp columns use `TIMESTAMP WITH TIME ZONE`
 - Foreign keys must include `ON DELETE CASCADE`
 
+### Python Style
+
+- Use triple-quoted strings (`"""..."""`) for multi-line strings instead of implicit concatenation with parentheses
+
 ### Git Workflow
 
 - Feature branches with pull requests
@@ -100,13 +107,15 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 
 **Implemented:**
 - User authentication (Supabase Auth with email/password)
-- User registration with email confirmation
+- User registration with email confirmation + welcome recommendation email
 - Newsletter frequency preferences (daily/weekly/monthly)
-- Album database schema and seeding from CSV
-- OCR-based album data extraction (Python)
+- Album database schema and automated seeding pipeline (extraction → streaming links → covers → summaries)
+- Vision-based album data extraction (Google Gemini 2.0 Flash)
+- LLM-generated artist and album summaries (Perplexity API)
 - Protected routes with auth middleware
 - Navigation based on auth state
 - Email recommendation sending via Resend (GitHub Actions cron, daily at 04:00 UTC)
+- Mobile-responsive email templates (signup confirmation, password reset, recommendations)
 - Recommendation history resets when all albums have been sent
 - Streaming link lookup script (Spotify Web API + iTunes Search API)
 - Album cover art lookup script (iTunes Search API)
@@ -124,12 +133,14 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `supabase/migrations/` | Database schema migrations |
 | `packages/frontend/src/lib/supabase/` | Supabase client setup (browser, server, middleware) |
 | `packages/frontend/src/app/` | Next.js pages and API routes |
-| `packages/backend/src/main.py` | Album seeding script |
+| `packages/backend/src/main.py` | Album seeding orchestrator (runs extraction + enrichment scripts) |
 | `packages/backend/src/email_template.py` | Recommendation email HTML template |
 | `packages/backend/src/send_recommendations.py` | Email sending script (Resend + frequency logic) |
+| `packages/backend/src/scripts/extract_album_data.py` | Vision-based album data extraction (Gemini) |
 | `packages/backend/src/scripts/add_streaming_links.py` | Spotify & Apple Music link lookup |
 | `packages/backend/src/scripts/add_album_covers.py` | Album cover art lookup (iTunes) |
+| `packages/backend/src/scripts/add_album_summaries.py` | LLM-generated artist/album summaries (Perplexity) |
+| `packages/frontend/src/email-templates/` | Supabase email templates (signup confirmation, password reset) |
 | `.github/workflows/send-recommendations.yml` | Cron workflow for daily email recommendations |
 | `.github/workflows/seed-database.yml` | Manual workflow for database seeding |
-| `data/albums.csv` | Album catalog data |
 | `docs/folder-structure.md` | Architecture rationale and structure proposal |
