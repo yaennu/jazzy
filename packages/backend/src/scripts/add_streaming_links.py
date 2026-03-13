@@ -6,6 +6,8 @@ Uses the Spotify Web API (Client Credentials) and the iTunes Search API.
 import os
 import sys
 import time
+import unicodedata
+import re
 
 import requests
 from dotenv import load_dotenv
@@ -17,11 +19,14 @@ BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
+ITUNES_LOOKUP_URL = "https://itunes.apple.com/lookup"
+ARTWORK_SIZE = "600x600"
 
 
 def get_supabase_client() -> Client:
     load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
-    load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+    if os.environ.get("PRODUCTION") == "True":
+        load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
@@ -34,7 +39,9 @@ def get_spotify_token() -> str | None:
     client_id = os.environ.get("SPOTIFY_CLIENT_ID")
     client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
     if not client_id or not client_secret:
-        print("Warning: SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET not set. Skipping Spotify lookups.")
+        print(
+            "Warning: SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET not set. Skipping Spotify lookups."
+        )
         return None
 
     response = requests.post(
@@ -49,20 +56,43 @@ def get_spotify_token() -> str | None:
     return response.json()["access_token"]
 
 
-def search_spotify(token: str, title: str, artist: str, release_year: int | None) -> str | None:
-    query = f"album:{title} artist:{artist}"
-    response = requests.get(
-        SPOTIFY_SEARCH_URL,
-        headers={"Authorization": f"Bearer {token}"},
-        params={"q": query, "type": "album", "limit": 10},
-    )
-    if response.status_code != 200:
-        return None
+def _normalize(text: str) -> str:
+    """Normalize text for fuzzy comparison: strip diacritics, standardize punctuation."""
+    # Strip diacritics/accents (e.g. "Éthiopiques" → "ethiopiques")
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = text.lower()
+    # Normalize apostrophes/quotes
+    text = re.sub(r"[''`]", "'", text)
+    # Normalize ampersand
+    text = text.replace("&", "and")
+    # Remove all punctuation except spaces
+    text = re.sub(r"[^\w\s]", " ", text)
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
-    items = response.json().get("albums", {}).get("items", [])
-    if not items:
-        return None
 
+def _to_search_query(text: str) -> str:
+    """Strip accents and normalize for use as an iTunes search query."""
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    return text.strip()
+
+
+def _word_overlap(a: str, b: str) -> float:
+    """Fraction of words in `a` that also appear in `b`."""
+    words_a = set(a.split())
+    words_b = set(b.split())
+    if not words_a:
+        return 0.0
+    return len(words_a & words_b) / len(words_a)
+
+
+def _match_spotify_result(
+    items: list[dict], title: str, artist: str, release_year: int | None
+) -> str | None:
+    """Find the best matching album from Spotify results. Prefers exact year match."""
     norm_title = _normalize(title)
     norm_artist = _normalize(artist)
 
@@ -91,24 +121,118 @@ def search_spotify(token: str, title: str, artist: str, release_year: int | None
     return exact_match or fuzzy_match
 
 
-def _normalize(text: str) -> str:
-    """Lowercase and strip for fuzzy comparison."""
-    return text.strip().lower()
+def _search_spotify_query(token: str, query: str) -> list[dict]:
+    """Run a Spotify search and return album items."""
+    response = requests.get(
+        SPOTIFY_SEARCH_URL,
+        headers={"Authorization": f"Bearer {token}"},
+        params={"q": query, "type": "album", "limit": 10},
+    )
+    if response.status_code != 200:
+        return []
+    return response.json().get("albums", {}).get("items", [])
+
+
+def search_spotify(
+    token: str, title: str, artist: str, release_year: int | None
+) -> tuple[str | None, bool]:
+    """Try multiple Spotify search strategies with progressively looser queries.
+
+    Returns (url, is_substitute) where is_substitute is True when the link is
+    the artist's most popular album rather than an exact title match.
+    """
+    stripped_title = re.sub(r"\s*\(.*?\)", "", title).strip()
+    ascii_title = _to_search_query(title)
+    ascii_artist = _to_search_query(artist)
+    ascii_stripped = _to_search_query(stripped_title)
+
+    attempts = [
+        (f"album:{title} artist:{artist}", title),         # 1. original
+        (f"album:{ascii_title} artist:{ascii_artist}", title),  # 2. ascii
+        (f"album:{ascii_stripped} artist:{ascii_artist}", stripped_title),  # 3. stripped parentheticals
+        (f"{ascii_title} {ascii_artist}", title),          # 4. plain text
+        (f"{ascii_artist} {ascii_title}", title),          # 5. artist-first plain
+    ]
+
+    for query, match_title in attempts:
+        items = _search_spotify_query(token, query)
+        url = _match_spotify_result(items, match_title, artist, release_year)
+        if url:
+            return url, False
+        time.sleep(0.2)
+
+    # Artist fallback: return first result that matches artist name
+    items = _search_spotify_query(token, f"artist:{ascii_artist}")
+    norm_artist = _normalize(artist)
+    for item in items:
+        r_artists = [_normalize(a["name"]) for a in item.get("artists", [])]
+        if any(norm_artist in ra or ra in norm_artist for ra in r_artists):
+            url = item["external_urls"].get("spotify")
+            if url:
+                return url, True
+
+    return None, False
+
+
+def _get_spotify_album_upc(token: str, spotify_url: str) -> str | None:
+    """Fetch the UPC barcode for a Spotify album URL."""
+    album_id = spotify_url.split("/album/")[-1].split("?")[0]
+    try:
+        response = requests.get(
+            f"https://api.spotify.com/v1/albums/{album_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        if response.status_code != 200:
+            return None
+        return response.json().get("external_ids", {}).get("upc")
+    except Exception:
+        return None
+
+
+def _lookup_itunes_by_upc(upc: str) -> tuple[str, str | None] | None:
+    """Look up an Apple Music album URL and artwork by UPC barcode."""
+    try:
+        response = requests.get(ITUNES_LOOKUP_URL, params={"upc": upc})
+        if response.status_code != 200:
+            return None
+        results = response.json().get("results", [])
+        for result in results:
+            url = result.get("collectionViewUrl")
+            if url:
+                artwork = result.get("artworkUrl100")
+                if artwork:
+                    artwork = artwork.replace("100x100", ARTWORK_SIZE)
+                return url, artwork
+        return None
+    except Exception:
+        return None
 
 
 def _search_itunes(query: str) -> list[dict]:
     """Run an iTunes Search API query and return album results."""
     response = requests.get(
         ITUNES_SEARCH_URL,
-        params={"term": query, "media": "music", "entity": "album", "limit": 10},
+        params={"term": query, "media": "music", "entity": "album", "limit": 25},
     )
     if response.status_code != 200:
         return []
     return response.json().get("results", [])
 
 
-def _match_apple_result(results: list[dict], title: str, artist: str, release_year: int | None) -> str | None:
-    """Find the best matching album from iTunes results. Prefers exact year match, falls back to title+artist match."""
+def _title_matches(norm_title: str, r_title: str) -> bool:
+    """True if titles are similar enough: substring or ≥60% word overlap."""
+    if norm_title in r_title or r_title in norm_title:
+        return True
+    return _word_overlap(norm_title, r_title) >= 0.6
+
+
+def _match_apple_result(
+    results: list[dict], title: str, artist: str, release_year: int | None
+) -> tuple[str, str | None] | None:
+    """Find the best matching album from iTunes results. Prefers exact year match, falls back to title+artist match.
+
+    Returns (collectionViewUrl, artworkUrl) or None.
+    """
     norm_title = _normalize(title)
     norm_artist = _normalize(artist)
 
@@ -120,49 +244,145 @@ def _match_apple_result(results: list[dict], title: str, artist: str, release_ye
         r_artist = _normalize(result.get("artistName", ""))
         r_date = result.get("releaseDate", "")
 
-        print(f"      iTunes result: \"{result.get('collectionName')}\" by {result.get('artistName')} ({r_date[:4] if r_date else '?'})")
-
-        if norm_title not in r_title and r_title not in norm_title:
+        if not _title_matches(norm_title, r_title):
             continue
         if norm_artist not in r_artist and r_artist not in norm_artist:
             continue
 
         url = result.get("collectionViewUrl")
+        artwork = result.get("artworkUrl100")
+        if artwork:
+            artwork = artwork.replace("100x100", ARTWORK_SIZE)
 
         # Check year match
         if release_year and r_date:
             if int(r_date[:4]) == release_year and not exact_match:
-                exact_match = url
+                exact_match = (url, artwork)
             elif not fuzzy_match:
-                fuzzy_match = url
+                fuzzy_match = (url, artwork)
         elif not fuzzy_match:
-            fuzzy_match = url
+            fuzzy_match = (url, artwork)
 
     # Prefer exact year match, but accept reissues
     return exact_match or fuzzy_match
 
 
-def search_apple_music(title: str, artist: str, release_year: int | None) -> str | None:
-    # Try title + artist first
-    results = _search_itunes(f"{title} {artist}")
-    url = _match_apple_result(results, title, artist, release_year)
-    if url:
-        return url
+def _match_apple_result_loose(
+    results: list[dict], artist: str, release_year: int | None
+) -> tuple[str, str | None] | None:
+    """Match iTunes results on artist + release year only (no title check).
 
-    # Fallback: search by title only (artist name may differ on Apple Music)
-    if not results or artist.lower() != "various artists":
-        results = _search_itunes(title)
-        url = _match_apple_result(results, title, artist, release_year)
-        if url:
-            return url
-
+    Returns (collectionViewUrl, artworkUrl) or None.
+    """
+    if not release_year:
+        return None
+    norm_artist = _normalize(artist)
+    for result in results:
+        r_artist = _normalize(result.get("artistName", ""))
+        r_date = result.get("releaseDate", "")
+        if norm_artist not in r_artist and r_artist not in norm_artist:
+            continue
+        if r_date and int(r_date[:4]) == release_year:
+            url = result.get("collectionViewUrl")
+            if url:
+                artwork = result.get("artworkUrl100")
+                if artwork:
+                    artwork = artwork.replace("100x100", ARTWORK_SIZE)
+                return url, artwork
     return None
+
+
+def _pick_artist_top_album(artist: str) -> tuple[str, str | None] | None:
+    """Return the collectionViewUrl and artworkUrl of the artist's most popular album on iTunes."""
+    ascii_artist = _to_search_query(artist)
+    norm_artist = _normalize(artist)
+    results = _search_itunes(ascii_artist)
+    for result in results:
+        r_artist = _normalize(result.get("artistName", ""))
+        if norm_artist in r_artist or r_artist in norm_artist:
+            url = result.get("collectionViewUrl")
+            if url:
+                artwork = result.get("artworkUrl100")
+                if artwork:
+                    artwork = artwork.replace("100x100", ARTWORK_SIZE)
+                return url, artwork
+    return None
+
+
+def search_apple_music(
+    title: str, artist: str, release_year: int | None
+) -> tuple[str | None, str | None, bool]:
+    """Try multiple iTunes search strategies with progressively looser queries.
+
+    Returns (url, artwork_url, is_substitute) where is_substitute is True when the link is
+    the artist's most popular album rather than an exact title match.
+    """
+    # Strip parenthetical subtitles (e.g. "... (Bande Originale Du Film)" → "...")
+    stripped_title = re.sub(r"\s*\(.*?\)", "", title).strip()
+    # ASCII versions (strip accents) so the iTunes API doesn't choke on special chars
+    ascii_title = _to_search_query(title)
+    ascii_stripped = _to_search_query(stripped_title)
+    # First word of artist for partial matches (e.g. "Erroll" from "Erroll Garner")
+    artist_first = artist.split()[0] if artist else artist
+    ascii_artist = _to_search_query(artist)
+
+    # Build ordered list of (search_query, match_title, match_artist) attempts
+    attempts = [
+        (f"{title} {artist}", title, artist),  # 1. original title + artist
+        (f"{ascii_title} {ascii_artist}", title, artist),  # 2. ascii title + artist
+        (ascii_title, title, artist),  # 3. ascii title only
+    ]
+    if stripped_title and stripped_title != title:
+        attempts += [
+            (
+                f"{ascii_stripped} {ascii_artist}",
+                stripped_title,
+                artist,
+            ),  # 4. ascii stripped + artist
+            (ascii_stripped, stripped_title, artist),  # 5. ascii stripped only
+        ]
+    attempts += [
+        (f"{ascii_artist} {ascii_title}", title, artist),  # 6. artist-first query
+        (ascii_artist, title, artist),  # 7. search by artist, match title
+        (
+            f"{artist_first} {ascii_stripped}",
+            stripped_title,
+            artist,
+        ),  # 8. first name + stripped
+    ]
+
+    for query, match_title, match_artist in attempts:
+        results = _search_itunes(query)
+        match = _match_apple_result(results, match_title, match_artist, release_year)
+        if match:
+            url, artwork = match
+            return url, artwork, False
+        time.sleep(0.2)
+
+    # Strategy 9: artist + year loose match
+    if release_year:
+        results = _search_itunes(f"{ascii_artist} {release_year}")
+        match = _match_apple_result_loose(results, artist, release_year)
+        if match:
+            url, artwork = match
+            return url, artwork, True
+        time.sleep(0.2)
+
+    # Fall back to artist's most popular album
+    match = _pick_artist_top_album(artist)
+    if match:
+        url, artwork = match
+        return url, artwork, True
+
+    return None, None, False
 
 
 def get_albums_missing_links(client: Client) -> list[dict]:
     response = (
         client.table("albums")
-        .select("album_id, title, artist, release_year, streaming_link_spotify, streaming_link_apple")
+        .select(
+            "album_id, title, artist, release_year, streaming_link_spotify, streaming_link_apple, apple_link_is_substitute, spotify_link_is_substitute, cover_image_url"
+        )
         .or_("streaming_link_spotify.is.null,streaming_link_apple.is.null")
         .execute()
     )
@@ -182,36 +402,80 @@ def main():
         return
 
     updated = 0
-    for album in albums:
+    apple_substitute_count = 0
+    spotify_substitute_count = 0
+    total = len(albums)
+    for i, album in enumerate(albums, 1):
         title = album["title"]
         artist = album["artist"]
+        release_year = album.get("release_year")
         updates = {}
 
-        print(f"  {title} — {artist}")
+        print(f"  [{i}/{total}] {title} — {artist}")
 
-        if album["streaming_link_spotify"] is None and spotify_token:
-            url = search_spotify(spotify_token, title, artist, album.get("release_year"))
+        if album["streaming_link_spotify"] is None and not album.get("spotify_link_is_substitute") and spotify_token:
+            url, is_sub = search_spotify(
+                spotify_token, title, artist, release_year
+            )
             if url:
                 updates["streaming_link_spotify"] = url
-                print(f"    Spotify: {url}")
+                updates["spotify_link_is_substitute"] = is_sub
+                if is_sub:
+                    spotify_substitute_count += 1
+                    print(f"    Spotify (substitute): {url}")
+                else:
+                    print(f"    Spotify: {url}")
             else:
                 print("    Spotify: not found")
             time.sleep(0.5)
 
-        if album["streaming_link_apple"] is None:
-            url = search_apple_music(title, artist, album.get("release_year"))
-            if url:
-                updates["streaming_link_apple"] = url
-                print(f"    Apple Music: {url}")
-            else:
-                print("    Apple Music: not found")
+        if album["streaming_link_apple"] is None and not album.get("apple_link_is_substitute"):
+            # Try Spotify → Apple UPC bridge first (high confidence)
+            spotify_url = updates.get("streaming_link_spotify") or album.get("streaming_link_spotify")
+            apple_url = None
+            if spotify_url and spotify_token:
+                upc = _get_spotify_album_upc(spotify_token, spotify_url)
+                if upc:
+                    upc_result = _lookup_itunes_by_upc(upc)
+                    if upc_result:
+                        apple_url, artwork_url = upc_result
+                        updates["streaming_link_apple"] = apple_url
+                        updates["apple_link_is_substitute"] = False
+                        if artwork_url and not album.get("cover_image_url"):
+                            updates["cover_image_url"] = artwork_url
+                        print(f"    Apple Music (via UPC): {apple_url}")
+
+            if not apple_url:
+                url, artwork_url, is_sub = search_apple_music(title, artist, release_year)
+                if url:
+                    updates["streaming_link_apple"] = url
+                    updates["apple_link_is_substitute"] = is_sub
+                    if artwork_url and not album.get("cover_image_url"):
+                        updates["cover_image_url"] = artwork_url
+                    if is_sub:
+                        apple_substitute_count += 1
+                        print(f"    Apple Music (substitute): {url}")
+                    else:
+                        print(f"    Apple Music: {url}")
+                else:
+                    print("    Apple Music: not found")
             time.sleep(0.5)
 
         if updates:
-            client.table("albums").update(updates).eq("album_id", album["album_id"]).execute()
+            client.table("albums").update(updates).eq(
+                "album_id", album["album_id"]
+            ).execute()
             updated += 1
 
-    print(f"\nDone. Updated {updated}/{len(albums)} album(s).")
+    summary = f"\nDone. Updated {updated}/{len(albums)} album(s)."
+    parts = []
+    if apple_substitute_count:
+        parts.append(f"{apple_substitute_count} Apple substitute(s)")
+    if spotify_substitute_count:
+        parts.append(f"{spotify_substitute_count} Spotify substitute(s)")
+    if parts:
+        summary += f" ({', '.join(parts)})"
+    print(summary)
 
 
 if __name__ == "__main__":
