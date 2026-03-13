@@ -6,7 +6,7 @@ and cover artists using Google Gemini 2.0 Flash via the Gen AI SDK, and inserts
 the structured data directly into the albums table.
 
 Requires GEMINI_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY to be set
-in packages/backend/.env.local
+in packages/backend/.env.local (set PRODUCTION=True to use .env.production)
 """
 
 import json
@@ -28,7 +28,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 
 load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
-load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+if os.environ.get("PRODUCTION") == "True":
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
 
 MODEL_NAME = "gemini-2.0-flash"
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
@@ -174,6 +175,7 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             "release_year": int(release_year),
             "cover_artists": str(data.get("cover_artists", "")).strip(),
             "calendar_order": calendar_order,
+            "image_filename": None,  # filled in by main()
         }
 
     except Exception as e:
@@ -184,23 +186,55 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             os.unlink(cropped_path)
 
 
-def insert_albums_to_db(client: Client, albums: list[dict]) -> None:
+EXTRACTION_COLS = ["title", "artist", "release_year", "label_name", "cover_artists", "calendar_order", "image_filename"]
+
+
+def upsert_albums_to_db(supabase: Client, albums: list[dict]) -> None:
     if not albums:
-        print("No albums to insert.")
+        print("No albums to upsert.")
         return
-    records = [
-        {
+
+    inserted = 0
+    updated = 0
+    skipped = 0
+
+    for a in albums:
+        calendar_order = a.get("calendar_order")
+        if calendar_order is None:
+            print(f"  Skipping album '{a.get('title')}': no calendar_order.")
+            skipped += 1
+            continue
+
+        existing = (
+            supabase.table("albums")
+            .select(", ".join(EXTRACTION_COLS))
+            .eq("calendar_order", calendar_order)
+            .execute()
+        )
+
+        record = {
             "title": a["title"],
             "artist": a["artist"],
             "release_year": a["release_year"] or None,
             "label_name": a["label_name"] or None,
             "cover_artists": a["cover_artists"] or None,
-            "calendar_order": a.get("calendar_order"),
+            "calendar_order": calendar_order,
+            "image_filename": a.get("image_filename"),
         }
-        for a in albums
-    ]
-    response = client.table("albums").insert(records).execute()
-    print(f"Inserted {len(response.data)} albums into the database.")
+
+        if not existing.data:
+            supabase.table("albums").insert(record).execute()
+            inserted += 1
+        else:
+            row = existing.data[0]
+            null_cols = {k: v for k, v in record.items() if row.get(k) is None and v is not None}
+            if not null_cols:
+                skipped += 1
+            else:
+                supabase.table("albums").update(null_cols).eq("calendar_order", calendar_order).execute()
+                updated += 1
+
+    print(f"Upsert complete: {inserted} inserted, {updated} updated, {skipped} skipped.")
 
 
 def main():
@@ -214,11 +248,23 @@ def main():
         print(f"No .PNG files found in {PNG_PHOTOS_DIR}")
         return
 
+    db_client = get_supabase_client()
+
+    existing_rows = db_client.table("albums").select(", ".join(EXTRACTION_COLS)).execute()
+    existing_by_filename = {row["image_filename"]: row for row in existing_rows.data if row.get("image_filename")}
+
     all_albums_data = []
 
     total = len(png_files)
     for i, image_path in enumerate(png_files, 1):
-        print(f"Processing {i}/{total}: {os.path.basename(image_path)}...")
+        filename = os.path.basename(image_path)
+        existing = existing_by_filename.get(filename)
+
+        if existing and all(existing.get(col) is not None for col in EXTRACTION_COLS):
+            print(f"Skipping {i}/{total}: {filename} (already complete in DB)")
+            continue
+
+        print(f"Processing {i}/{total}: {filename}...")
         album_info = extract_album_info_from_image(image_path)
 
         if (
@@ -226,12 +272,12 @@ def main():
             and album_info["title"].strip()
             and album_info["title"] != "Unknown Title"
         ):
+            album_info["image_filename"] = filename
             all_albums_data.append(album_info)
         else:
             print(f"Could not extract valid information from {image_path}")
 
-    db_client = get_supabase_client()
-    insert_albums_to_db(db_client, all_albums_data)
+    upsert_albums_to_db(db_client, all_albums_data)
     print(f"\nSuccessfully extracted data for {len(all_albums_data)} albums.")
 
 
