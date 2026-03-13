@@ -25,7 +25,11 @@ CREATE TABLE albums (
     album_summary TEXT,
     label_name VARCHAR(255),
     cover_artists TEXT,
-    calendar_order INTEGER
+    calendar_order INTEGER,
+    apple_link_is_substitute BOOLEAN NOT NULL DEFAULT FALSE,
+    spotify_link_is_substitute BOOLEAN NOT NULL DEFAULT FALSE,
+    image_filename TEXT,
+    CONSTRAINT albums_calendar_order_unique UNIQUE (calendar_order)
 );
 
 CREATE TABLE recommendations (
