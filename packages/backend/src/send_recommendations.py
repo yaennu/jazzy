@@ -23,7 +23,8 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 def get_supabase_client() -> Client:
     load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
-    load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+    if os.environ.get("PRODUCTION") == "True":
+        load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:

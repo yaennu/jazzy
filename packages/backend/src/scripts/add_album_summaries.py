@@ -27,7 +27,8 @@ REQUEST_DELAY_SECONDS = 1.5
 
 def get_supabase_client() -> Client:
     load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
-    load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+    if os.environ.get("PRODUCTION") == "True":
+        load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
@@ -38,7 +39,8 @@ def get_supabase_client() -> Client:
 
 def get_perplexity_api_key() -> str:
     load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
-    load_dotenv(os.path.join(BACKEND_ROOT, ".env"))
+    if os.environ.get("PRODUCTION") == "True":
+        load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
     key = os.environ.get("PERPLEXITY_API_KEY")
     if not key:
         print("Error: PERPLEXITY_API_KEY must be set.")
