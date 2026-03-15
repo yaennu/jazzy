@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         if (!error) {
             // Send a welcome recommendation only on initial account confirmation
             if (type === 'signup' && data.user) {
-                sendWelcomeRecommendation(data.user).catch(console.error)
+                await sendWelcomeRecommendation(data.user).catch(console.error)
             }
 
             redirectTo.searchParams.delete('next')
