@@ -189,6 +189,34 @@ def _get_spotify_album_upc(token: str, spotify_url: str) -> str | None:
         return None
 
 
+def _get_itunes_album_upc(apple_url: str) -> str | None:
+    """Fetch the UPC barcode for an Apple Music album URL."""
+    match = re.search(r"/id(\d+)", apple_url)
+    if not match:
+        return None
+    collection_id = match.group(1)
+    try:
+        response = requests.get(ITUNES_LOOKUP_URL, params={"id": collection_id})
+        if response.status_code != 200:
+            return None
+        results = response.json().get("results", [])
+        for result in results:
+            upc = result.get("upc")
+            if upc:
+                return upc
+        return None
+    except Exception:
+        return None
+
+
+def _search_spotify_by_upc(token: str, upc: str) -> str | None:
+    """Search Spotify by UPC barcode and return the album URL if found."""
+    items = _search_spotify_query(token, f"upc:{upc}")
+    if items:
+        return items[0].get("external_urls", {}).get("spotify")
+    return None
+
+
 def _lookup_itunes_by_upc(upc: str) -> tuple[str, str | None] | None:
     """Look up an Apple Music album URL and artwork by UPC barcode."""
     try:
@@ -414,19 +442,32 @@ def main():
         print(f"  [{i}/{total}] {title} — {artist}")
 
         if album["streaming_link_spotify"] is None and not album.get("spotify_link_is_substitute") and spotify_token:
-            url, is_sub = search_spotify(
-                spotify_token, title, artist, release_year
-            )
-            if url:
-                updates["streaming_link_spotify"] = url
-                updates["spotify_link_is_substitute"] = is_sub
-                if is_sub:
-                    spotify_substitute_count += 1
-                    print(f"    Spotify (substitute): {url}")
+            # Try Apple Music → Spotify UPC bridge first (high confidence)
+            apple_url = updates.get("streaming_link_apple") or album.get("streaming_link_apple")
+            spotify_url = None
+            if apple_url:
+                upc = _get_itunes_album_upc(apple_url)
+                if upc:
+                    spotify_url = _search_spotify_by_upc(spotify_token, upc)
+                    if spotify_url:
+                        updates["streaming_link_spotify"] = spotify_url
+                        updates["spotify_link_is_substitute"] = False
+                        print(f"    Spotify (via UPC): {spotify_url}")
+
+            if not spotify_url:
+                url, is_sub = search_spotify(
+                    spotify_token, title, artist, release_year
+                )
+                if url:
+                    updates["streaming_link_spotify"] = url
+                    updates["spotify_link_is_substitute"] = is_sub
+                    if is_sub:
+                        spotify_substitute_count += 1
+                        print(f"    Spotify (substitute): {url}")
+                    else:
+                        print(f"    Spotify: {url}")
                 else:
-                    print(f"    Spotify: {url}")
-            else:
-                print("    Spotify: not found")
+                    print("    Spotify: not found")
             time.sleep(0.5)
 
         if album["streaming_link_apple"] is None and not album.get("apple_link_is_substitute"):
