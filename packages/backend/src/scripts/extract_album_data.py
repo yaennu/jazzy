@@ -160,7 +160,7 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             print(f"  Response: {raw_text}")
             return None
 
-        release_year = data.get("release_year", 0)
+        release_year = data.get("release_year") or 0
         if isinstance(release_year, str):
             year_match = re.search(r"\d{4}", release_year)
             release_year = int(year_match.group()) if year_match else 0
