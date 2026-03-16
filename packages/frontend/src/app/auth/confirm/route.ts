@@ -7,7 +7,7 @@ import { renderWelcomeEmail, type WelcomeAlbum } from '@/lib/welcome-email'
 async function sendWelcomeRecommendation(user: { id: string; email?: string; user_metadata?: { name?: string } }) {
     const albumId = process.env.WELCOME_ALBUM_ID
     const resendKey = process.env.RESEND_API_KEY
-    const fromEmail = process.env.FROM_EMAIL ?? 'Jazzy <onboarding@resend.dev>'
+    const fromEmail = process.env.FROM_EMAIL ?? 'Jazzy <noreply@jazzy.yaennu.ch>'
 
     if (!albumId || !resendKey || !user.email) {
         console.error('Welcome email skipped: missing', !albumId && 'WELCOME_ALBUM_ID', !resendKey && 'RESEND_API_KEY', !user.email && 'user email')
