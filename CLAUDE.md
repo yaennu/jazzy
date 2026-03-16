@@ -117,7 +117,7 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 - Email recommendation sending via Resend (GitHub Actions cron, daily at 04:00 UTC)
 - Mobile-responsive email templates (signup confirmation, password reset, recommendations)
 - Recommendation history resets when all albums have been sent
-- Streaming link lookup script (Spotify Web API + iTunes Search API)
+- Streaming link lookup script (Spotify Web API + iTunes Search API + Apple Music → Spotify UPC bridge)
 - Album cover art lookup script (iTunes Search API)
 - Album cover image in recommendation emails
 - Database seeding via GitHub Actions workflow
@@ -137,7 +137,7 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `packages/backend/src/email_template.py` | Recommendation email HTML template |
 | `packages/backend/src/send_recommendations.py` | Email sending script (Resend + frequency logic) |
 | `packages/backend/src/scripts/extract_album_data.py` | Vision-based album data extraction (Gemini) |
-| `packages/backend/src/scripts/add_streaming_links.py` | Spotify & Apple Music link lookup |
+| `packages/backend/src/scripts/add_streaming_links.py` | Spotify & Apple Music link lookup (multi-strategy, incl. UPC bridge) |
 | `packages/backend/src/scripts/add_album_covers.py` | Album cover art lookup (iTunes) |
 | `packages/backend/src/scripts/add_album_summaries.py` | LLM-generated artist/album summaries (Perplexity) |
 | `packages/frontend/src/email-templates/` | Supabase email templates (signup confirmation, password reset) |

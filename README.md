@@ -24,7 +24,7 @@ cd packages/frontend
 npm run dev
 ```
 
-The app will be available at `http://localhost:3000`.
+The app will be available at `http://localhost:3001`.
 
 ### Backend
 
@@ -125,7 +125,7 @@ Requires `GEMINI_API_KEY` in `.env.local`.
 
 ### Add Streaming Links
 
-Looks up Spotify and Apple Music links for albums missing streaming links, using the Spotify Web API and iTunes Search API.
+Looks up Spotify and Apple Music links for albums missing streaming links, using the Spotify Web API and iTunes Search API. Uses a multi-strategy approach including an Apple Music → Spotify UPC bridge for higher-confidence matching.
 
 ```bash
 uv run python src/scripts/add_streaming_links.py
