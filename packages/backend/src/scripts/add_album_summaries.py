@@ -67,7 +67,8 @@ Do not use bullet points or headings. Do not include citations or footnotes. \
 Link every person, musician, band, record label, album and record \
 mentioned in your text as an HTML anchor tag (<a href="URL">name</a>) \
 pointing to their Wikipedia page. Only use URLs you are confident exist. \
-Do not use [] for source referencing.""",
+Do not use [] for source referencing. \
+Your entire response must be a single line of text with no newline characters.""",
             },
             {"role": "user", "content": prompt},
         ],
