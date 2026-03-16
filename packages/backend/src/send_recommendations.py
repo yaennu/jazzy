@@ -99,8 +99,13 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
     )
     sent_ids = [r["album_id"] for r in sent_response.data]
 
-    # Get all albums ordered by calendar_order
-    albums_response = client.table("albums").select("*").execute()
+    # Get all albums that have at least one streaming link
+    albums_response = (
+        client.table("albums")
+        .select("*")
+        .or_("streaming_link_spotify.not.is.null,streaming_link_apple.not.is.null")
+        .execute()
+    )
     all_albums = albums_response.data
 
     # Filter out already-sent albums
