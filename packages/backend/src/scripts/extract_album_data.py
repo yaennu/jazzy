@@ -51,6 +51,10 @@ IMPORTANT: Read ONLY the small printed text in the bottom-right area for album i
 Do NOT read text from the album cover artwork itself. The release year is the 4-digit \
 year next to the record label name (e.g. "Blue Note Records, 1975"), NOT the calendar date.
 
+SPECIAL CASE: If there is only ONE line before the label name and release year (line 3), \
+then that single line is BOTH the artist name AND the album title — use it for both the \
+"artist" and "title" fields (this happens when the artist's name is the album title).
+
 Return ONLY a JSON object with these keys:
 - "calendar_date": the calendar date from the bottom-left corner (e.g. "02 JAN")
 - "artist": the artist or band name (from line 1 of the text area)
@@ -160,20 +164,27 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
             print(f"  Response: {raw_text}")
             return None
 
-        release_year = data.get("release_year") or 0
-        if isinstance(release_year, str):
-            year_match = re.search(r"\d{4}", release_year)
-            release_year = int(year_match.group()) if year_match else 0
+        raw_year = data.get("release_year")
+        if isinstance(raw_year, str):
+            year_match = re.search(r"\d{4}", raw_year)
+            raw_year = int(year_match.group()) if year_match else None
+        release_year = int(raw_year) if raw_year else None
 
         calendar_date = str(data.get("calendar_date", "")).strip().upper()
         calendar_order = _calendar_date_to_day_of_year(calendar_date) if calendar_date else None
 
+        def _str_or_none(val, fallback=None):
+            s = str(val).strip() if val is not None else None
+            if not s or s.lower() == "none":
+                return fallback
+            return s
+
         return {
-            "title": str(data.get("title", "Unknown Title")).strip(),
-            "artist": str(data.get("artist", "Unknown Artist")).strip(),
-            "label_name": str(data.get("label_name", "")).strip(),
-            "release_year": int(release_year),
-            "cover_artists": str(data.get("cover_artists", "")).strip(),
+            "title": _str_or_none(data.get("title"), "Unknown Title"),
+            "artist": _str_or_none(data.get("artist"), "Unknown Artist"),
+            "label_name": _str_or_none(data.get("label_name")),
+            "release_year": release_year,
+            "cover_artists": _str_or_none(data.get("cover_artists")),
             "calendar_order": calendar_order,
             "image_filename": None,  # filled in by main()
         }
