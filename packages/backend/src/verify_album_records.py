@@ -1,19 +1,23 @@
 """Verify album records in the Supabase database using the Claude Agent SDK.
 
-Uses Claude Code with the Supabase MCP to fetch all album records, verify
-each record's consistency (title, artist, release year, label, summaries,
-etc.), and write findings to an xlsx file.
+Fetches all album records via the Supabase Python client, then sends
+the data to Claude Code for verification of each record's consistency
+(title, artist, release year, label, summaries, etc.). Writes findings
+to an xlsx file.
 """
 
 import asyncio
 import json
+import os
 import sys
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from pydantic import BaseModel
+from supabase import Client, create_client
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -28,7 +32,15 @@ from claude_agent_sdk import (
 SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = BACKEND_ROOT / "output"
+
+COLUMNS_TO_FETCH = (
+    "album_id, title, artist, release_year, label_name, cover_artists, "
+    "artist_summary, album_summary, streaming_link_spotify, streaming_link_apple, "
+    "cover_image_url, calendar_order, apple_link_is_substitute, "
+    "spotify_link_is_substitute, image_filename"
+)
 
 
 class AlbumFinding(BaseModel):
@@ -50,14 +62,15 @@ class VerificationResults(BaseModel):
     findings: list[AlbumFinding]
 
 
-VERIFICATION_PROMPT = """\
+VERIFICATION_PROMPT_TEMPLATE = """\
 You are a jazz music expert verifying the accuracy of album records in a database.
 
-Use the Supabase MCP to query ALL records from the "albums" table. Fetch every column:
-album_id, title, artist, release_year, label_name, cover_artists,
-artist_summary, album_summary, streaming_link_spotify, streaming_link_apple,
-cover_image_url, calendar_order, apple_link_is_substitute,
-spotify_link_is_substitute, image_filename.
+Below are ALL the album records from the database, provided as JSON. You do NOT need
+to query any database or use any tools — the data is right here.
+
+<album_records>
+{records_json}
+</album_records>
 
 For EACH album record, verify the following:
 
@@ -100,7 +113,27 @@ For EACH album record, verify the following:
    Use "low" if you're unsure about the album's existence or details.
 
 Return the results as structured JSON matching the required schema.
+You MUST return one finding per album record. Do not skip any records.
 """
+
+
+def get_supabase_client() -> Client:
+    """Initialize Supabase client from environment variables."""
+    load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
+    if os.environ.get("PRODUCTION") == "True":
+        load_dotenv(os.path.join(BACKEND_ROOT, ".env.production"), override=True)
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print("Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+        sys.exit(1)
+    return create_client(url, key)
+
+
+def fetch_albums(client: Client) -> list[dict]:
+    """Fetch all album records from Supabase."""
+    response = client.table("albums").select(COLUMNS_TO_FETCH).execute()
+    return response.data
 
 
 def _status_line(spinner_idx: int, elapsed: float, turn: int, message: str) -> None:
@@ -112,12 +145,15 @@ def _status_line(spinner_idx: int, elapsed: float, turn: int, message: str) -> N
     print(f"\r\033[K  {frame} [{timestamp}] Turn {turn}: {truncated}", end="", flush=True)
 
 
-async def verify_albums() -> VerificationResults:
-    """Send verification prompt to Claude Code via the Agent SDK."""
+async def verify_albums(albums: list[dict]) -> VerificationResults:
+    """Send album data to Claude Code for verification via the Agent SDK."""
+    records_json = json.dumps(albums, indent=2, ensure_ascii=False)
+    prompt = VERIFICATION_PROMPT_TEMPLATE.format(records_json=records_json)
+
     options = ClaudeAgentOptions(
         cwd=str(PROJECT_ROOT),
-        allowed_tools=["mcp__supabase__*"],
         permission_mode="bypassPermissions",
+        disallowed_tools=["Bash", "Edit", "Write"],
         output_format={
             "type": "json_schema",
             "schema": VerificationResults.model_json_schema(),
@@ -131,16 +167,11 @@ async def verify_albums() -> VerificationResults:
     spinner_idx = 0
     start_time = time.monotonic()
 
-    print("=" * 60)
-    print("  Album Record Verification")
-    print("  Using Claude Code + Supabase MCP")
-    print("=" * 60)
-    print(f"  Project root: {PROJECT_ROOT}")
     print()
-    print("  Connecting to Claude Code...")
+    print("  Sending records to Claude for verification...")
 
     async for message in query(
-        prompt=VERIFICATION_PROMPT,
+        prompt=prompt,
         options=options,
     ):
         elapsed = time.monotonic() - start_time
@@ -208,7 +239,6 @@ def write_xlsx(results: VerificationResults, output_path: Path) -> None:
         "Confidence",
     ]
 
-    header_font = Font(bold=True, size=11)
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font_white = Font(bold=True, size=11, color="FFFFFF")
     green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
@@ -273,7 +303,7 @@ def write_xlsx(results: VerificationResults, output_path: Path) -> None:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(str(output_path))
-    print(f"Wrote {len(results.findings)} findings to {output_path}")
+    print(f"  Wrote {len(results.findings)} findings to {output_path}")
 
 
 def print_summary(results: VerificationResults) -> None:
@@ -283,20 +313,40 @@ def print_summary(results: VerificationResults) -> None:
     illegitimate = sum(1 for f in results.findings if not f.is_legitimate)
     low_confidence = sum(1 for f in results.findings if f.confidence == "low")
 
-    print(f"\n{'=' * 50}")
-    print(f"VERIFICATION SUMMARY")
-    print(f"{'=' * 50}")
-    print(f"Total albums verified: {total}")
-    print(f"Albums with issues:    {issues_count}")
-    print(f"Illegitimate albums:   {illegitimate}")
-    print(f"Low confidence:        {low_confidence}")
-    print(f"{'=' * 50}")
+    print()
+    print("=" * 60)
+    print("  VERIFICATION SUMMARY")
+    print("=" * 60)
+    print(f"  Total albums verified: {total}")
+    print(f"  Albums with issues:    {issues_count}")
+    print(f"  Illegitimate albums:   {illegitimate}")
+    print(f"  Low confidence:        {low_confidence}")
+    print("=" * 60)
 
 
 async def main() -> None:
     output_path = OUTPUT_DIR / "album_verification.xlsx"
 
-    results = await verify_albums()
+    print("=" * 60)
+    print("  Album Record Verification")
+    print("  Supabase -> Claude Code -> XLSX")
+    print("=" * 60)
+
+    # Step 1: Fetch albums from Supabase
+    print()
+    print("  Connecting to Supabase...")
+    client = get_supabase_client()
+    albums = fetch_albums(client)
+    print(f"  Fetched {len(albums)} album records.")
+
+    if not albums:
+        print("  No albums found. Nothing to verify.")
+        sys.exit(0)
+
+    # Step 2: Send to Claude for verification
+    results = await verify_albums(albums)
+
+    # Step 3: Write xlsx
     write_xlsx(results, output_path)
     print_summary(results)
 
