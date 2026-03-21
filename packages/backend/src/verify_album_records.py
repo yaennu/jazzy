@@ -8,6 +8,7 @@ etc.), and write findings to an xlsx file.
 import asyncio
 import json
 import sys
+import time
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -19,8 +20,12 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ResultMessage,
     TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
     query,
 )
+
+SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
@@ -98,6 +103,15 @@ Return the results as structured JSON matching the required schema.
 """
 
 
+def _status_line(spinner_idx: int, elapsed: float, turn: int, message: str) -> None:
+    """Overwrite the current terminal line with a status update."""
+    frame = SPINNER_FRAMES[spinner_idx % len(SPINNER_FRAMES)]
+    mins, secs = divmod(int(elapsed), 60)
+    timestamp = f"{mins:02d}:{secs:02d}"
+    truncated = (message[:70] + "...") if len(message) > 73 else message
+    print(f"\r\033[K  {frame} [{timestamp}] Turn {turn}: {truncated}", end="", flush=True)
+
+
 async def verify_albums() -> VerificationResults:
     """Send verification prompt to Claude Code via the Agent SDK."""
     options = ClaudeAgentOptions(
@@ -113,24 +127,50 @@ async def verify_albums() -> VerificationResults:
 
     result_text = None
     structured_output = None
+    turn = 0
+    spinner_idx = 0
+    start_time = time.monotonic()
 
-    print("Starting album verification with Claude Code...")
-    print(f"Project root: {PROJECT_ROOT}")
+    print("=" * 60)
+    print("  Album Record Verification")
+    print("  Using Claude Code + Supabase MCP")
+    print("=" * 60)
+    print(f"  Project root: {PROJECT_ROOT}")
+    print()
+    print("  Connecting to Claude Code...")
 
     async for message in query(
         prompt=VERIFICATION_PROMPT,
         options=options,
     ):
+        elapsed = time.monotonic() - start_time
+        spinner_idx += 1
+
         if isinstance(message, AssistantMessage):
+            turn += 1
             for block in message.content:
-                if isinstance(block, TextBlock):
-                    print(f"  Claude: {block.text[:200]}")
+                if isinstance(block, ToolUseBlock):
+                    _status_line(spinner_idx, elapsed, turn, f"Calling {block.name}...")
+                elif isinstance(block, ToolResultBlock):
+                    _status_line(spinner_idx, elapsed, turn, "Processing tool result...")
+                elif isinstance(block, TextBlock):
+                    text = block.text.replace("\n", " ").strip()
+                    if text:
+                        _status_line(spinner_idx, elapsed, turn, text)
         elif isinstance(message, ResultMessage):
-            print(f"  Status: {message.subtype} (turns: {message.num_turns})")
+            # Clear the spinner line
+            print("\r\033[K", end="")
+            total_elapsed = time.monotonic() - start_time
+            mins, secs = divmod(int(total_elapsed), 60)
+            print(f"  Done in {mins}m {secs}s ({message.num_turns} turns)")
             if message.total_cost_usd:
                 print(f"  Cost: ${message.total_cost_usd:.4f}")
+            if message.is_error:
+                print(f"  Error: {message.subtype}")
             result_text = message.result
             structured_output = message.structured_output
+
+    print()
 
     if structured_output:
         return VerificationResults.model_validate(structured_output)
