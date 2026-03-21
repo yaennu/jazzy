@@ -36,6 +36,7 @@ class AlbumFinding(BaseModel):
     artist_summary_coherent: bool
     album_summary_coherent: bool
     cover_artists_correct: bool
+    apple_link_coherent: bool
     issues: str
     confidence: str
 
@@ -73,7 +74,16 @@ For EACH album record, verify the following:
 6. **cover_artists_correct**: Are the cover_artists (sidemen/personnel) coherent with
    this album? If NULL, mark as true but note it.
 
-7. **issues**: A free-text description of ALL issues found. Include:
+7. **apple_link_coherent**: Check the streaming_link_apple URL text (do NOT visit the URL).
+   Apple Music URLs typically contain the artist name, album title, and sometimes a year
+   in their path (e.g., "https://music.apple.com/us/album/blue-train/724467923").
+   Verify that the text in the URL is coherent with the album's title and artist.
+   If the URL contains a different artist or album name, mark as false.
+   If streaming_link_apple is NULL, mark as true but note it in issues.
+   Also consider apple_link_is_substitute: if true, the link may point to a different
+   album by the same artist (which is acceptable but should be noted).
+
+8. **issues**: A free-text description of ALL issues found. Include:
    - Any factual inaccuracies
    - NULL columns that should have values
    - Mismatched data (e.g., wrong year, wrong label)
@@ -81,7 +91,7 @@ For EACH album record, verify the following:
    - Any other inconsistencies
    If no issues, use "No issues found."
 
-8. **confidence**: Your confidence in the verification: "high", "medium", or "low".
+9. **confidence**: Your confidence in the verification: "high", "medium", or "low".
    Use "low" if you're unsure about the album's existence or details.
 
 Return the results as structured JSON matching the required schema.
@@ -153,6 +163,7 @@ def write_xlsx(results: VerificationResults, output_path: Path) -> None:
         "Artist Summary OK?",
         "Album Summary OK?",
         "Cover Artists OK?",
+        "Apple Link OK?",
         "Issues",
         "Confidence",
     ]
@@ -169,7 +180,7 @@ def write_xlsx(results: VerificationResults, output_path: Path) -> None:
         cell.font = header_font_white
         cell.fill = header_fill
 
-    bool_columns = [4, 5, 6, 7, 8, 9]  # 1-indexed column numbers for boolean fields
+    bool_columns = [4, 5, 6, 7, 8, 9, 10]  # 1-indexed column numbers for boolean fields
 
     for row_idx, finding in enumerate(results.findings, 2):
         row_data = [
@@ -182,6 +193,7 @@ def write_xlsx(results: VerificationResults, output_path: Path) -> None:
             finding.artist_summary_coherent,
             finding.album_summary_coherent,
             finding.cover_artists_correct,
+            finding.apple_link_coherent,
             finding.issues,
             finding.confidence,
         ]
@@ -191,32 +203,33 @@ def write_xlsx(results: VerificationResults, output_path: Path) -> None:
             if col_idx in bool_columns:
                 cell.value = "YES" if value else "NO"
                 cell.fill = green_fill if value else red_fill
-            if col_idx == 10:  # Issues column
+            if col_idx == 11:  # Issues column
                 cell.alignment = wrap_alignment
 
     # Auto-size columns
     column_widths = {
-        1: 38,   # Album ID (UUID)
-        2: 35,   # Title
-        3: 25,   # Artist
-        4: 13,   # Legitimate?
-        5: 17,   # Release Year OK?
-        6: 12,   # Label OK?
-        7: 19,   # Artist Summary OK?
-        8: 19,   # Album Summary OK?
-        9: 17,   # Cover Artists OK?
-        10: 60,  # Issues
-        11: 13,  # Confidence
+        "A": 38,   # Album ID (UUID)
+        "B": 35,   # Title
+        "C": 25,   # Artist
+        "D": 13,   # Legitimate?
+        "E": 17,   # Release Year OK?
+        "F": 12,   # Label OK?
+        "G": 19,   # Artist Summary OK?
+        "H": 19,   # Album Summary OK?
+        "I": 17,   # Cover Artists OK?
+        "J": 16,   # Apple Link OK?
+        "K": 60,   # Issues
+        "L": 13,   # Confidence
     }
 
-    for col_idx, width in column_widths.items():
-        ws.column_dimensions[chr(64 + col_idx)].width = width
+    for col_letter, width in column_widths.items():
+        ws.column_dimensions[col_letter].width = width
 
     # Freeze the header row
     ws.freeze_panes = "A2"
 
     # Add auto-filter
-    ws.auto_filter.ref = f"A1:K{len(results.findings) + 1}"
+    ws.auto_filter.ref = f"A1:L{len(results.findings) + 1}"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(str(output_path))
