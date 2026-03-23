@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -132,7 +133,7 @@ def get_supabase_client() -> Client:
 
 def fetch_albums(client: Client) -> list[dict]:
     """Fetch all album records from Supabase."""
-    response = client.table("albums").select(COLUMNS_TO_FETCH).execute()
+    response = client.table("albums").select(COLUMNS_TO_FETCH).limit(10).execute()
     return response.data
 
 
@@ -325,7 +326,8 @@ def print_summary(results: VerificationResults) -> None:
 
 
 async def main() -> None:
-    output_path = OUTPUT_DIR / "album_verification.xlsx"
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    output_path = OUTPUT_DIR / f"album-verification-{timestamp}.xlsx"
 
     print("=" * 60)
     print("  Album Record Verification")
