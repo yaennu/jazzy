@@ -11,17 +11,17 @@ export default function ImprintPage() {
                 <section className="space-y-3">
                     <h2 className="text-xl font-semibold">Responsible for Content</h2>
                     <div className="text-sm text-gray-700 leading-relaxed space-y-1">
-                        <p>[Your Name]</p>
-                        <p>[Your Street Address]</p>
-                        <p>[Your ZIP Code and City]</p>
-                        <p>[Your Country]</p>
+                        <p>Yannick Schwarz</p>
+                        <p>Schosshaldenstrasse 30</p>
+                        <p>3006 Bern</p>
+                        <p>Switzerland</p>
                     </div>
                 </section>
 
                 <section className="space-y-3">
                     <h2 className="text-xl font-semibold">Contact</h2>
                     <div className="text-sm text-gray-700 leading-relaxed space-y-1">
-                        <p>Email: <a href="mailto:[your-email@example.com]" className="text-blue-600 hover:underline">[your-email@example.com]</a></p>
+                        <p>Email: <a href="mailto:yannickschwarz@icloud.com" className="text-blue-600 hover:underline">yannickschwarz@icloud.com</a></p>
                     </div>
                 </section>
 
