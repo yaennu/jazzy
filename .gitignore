@@ -227,3 +227,6 @@ data/albums.csv
 temp.md
 TODO.md
 temp/
+
+# Verification output
+packages/backend/output/*.xlsx
