@@ -12,6 +12,7 @@ export default function RegisterPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [consent, setConsent] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -20,6 +21,12 @@ export default function RegisterPage() {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+
+        if (!consent) {
+            setError("You must accept the privacy policy to create an account.");
+            return;
+        }
+
         setLoading(true);
 
         const supabase = createClient();
@@ -93,7 +100,20 @@ export default function RegisterPage() {
                         <Label htmlFor="password">Password</Label>
                         <Input id="password" type="password" required value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} />
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <div className="flex items-start space-x-2">
+                        <input
+                            id="consent"
+                            type="checkbox"
+                            checked={consent}
+                            onChange={(e) => setConsent(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300"
+                        />
+                        <Label htmlFor="consent" className="text-sm font-normal text-gray-600 leading-snug">
+                            I agree to the <Link href="/privacy" className="text-blue-600 hover:underline" target="_blank">Privacy Policy</Link> and
+                            consent to receiving jazz album recommendations via email.
+                        </Label>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading || !consent}>
                         {loading ? "Creating account..." : "Register"}
                     </Button>
                 </form>

@@ -32,8 +32,19 @@ async function sendWelcomeRecommendation(user: { id: string; email?: string; use
         return
     }
 
+    const { data: userData } = await admin
+        .from('users')
+        .select('unsubscribe_token')
+        .eq('user_id', user.id)
+        .single()
+
+    const frontendUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '') ?? ''
+    const unsubscribeUrl = userData?.unsubscribe_token
+        ? `${frontendUrl}/unsubscribe?token=${userData.unsubscribe_token}`
+        : undefined
+
     const userName = user.user_metadata?.name ?? user.email.split('@')[0]
-    const html = renderWelcomeEmail(userName, album as WelcomeAlbum)
+    const html = renderWelcomeEmail(userName, album as WelcomeAlbum, unsubscribeUrl)
 
     const resend = new Resend(resendKey)
     await resend.emails.send({

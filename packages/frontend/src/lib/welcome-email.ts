@@ -36,7 +36,7 @@ function renderSummaries(albumSummary?: string | null, artistSummary?: string | 
               </table>`
 }
 
-export function renderWelcomeEmail(userName: string, album: WelcomeAlbum): string {
+export function renderWelcomeEmail(userName: string, album: WelcomeAlbum, unsubscribeUrl?: string): string {
     const { title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary, spotify_link_is_substitute, apple_link_is_substitute } = album
     const yearText = release_year ? ` (${release_year})` : ''
     const spotifyLabel = spotify_link_is_substitute && !apple_link_is_substitute ? 'Listen on Spotify (substitute)' : 'Listen on Spotify'
@@ -125,6 +125,7 @@ export function renderWelcomeEmail(userName: string, album: WelcomeAlbum): strin
           <tr>
             <td class="email-footer-td" style="padding: 24px 40px; border-top: 1px solid #e4e4e7; text-align: center;">
               <p style="margin: 0; color: #a1a1aa; font-size: 12px;">Jazzy &mdash; Discover jazz, one album at a time.</p>
+              ${unsubscribeUrl ? `<p style="margin: 8px 0 0; font-size: 12px;"><a href="${unsubscribeUrl}" style="color: #a1a1aa; text-decoration: underline;">Unsubscribe</a></p>` : ''}
             </td>
           </tr>
         </table>
