@@ -108,11 +108,15 @@ For EACH album record, verify the following:
 7. **apple_link_coherent**: Check the streaming_link_apple URL text (do NOT visit the URL).
    Apple Music URLs typically contain the artist name, album title, and sometimes a year
    in their path (e.g., "https://music.apple.com/us/album/blue-train/724467923").
-   Verify that the text in the URL is coherent with the album's title and artist.
-   If the URL contains a different artist or album name, mark as false.
    If streaming_link_apple is NULL, mark as true but note it in issues.
-   Also consider apple_link_is_substitute: if true, the link may point to a different
-   album by the same artist (which is acceptable but should be noted).
+   If apple_link_is_substitute is false: verify that the URL text is coherent with the
+   album's title and artist. Mark false only if the URL clearly points to a different artist.
+   If apple_link_is_substitute is true: the link is a substitute, so check whether the
+   substitute is acceptable. Be generous — any album by the same artist released within
+   roughly 5 years of the original is acceptable. Only mark false if the URL clearly points
+   to a completely different artist, or to an album from a wildly different era.
+   Similarly, if spotify_link_is_substitute is true, note in issues what the Spotify
+   substitute appears to be (Spotify URLs are opaque IDs, so just note the substitution).
 
 8. **issues**: A free-text description of ALL issues found. Include:
    - Any factual inaccuracies
