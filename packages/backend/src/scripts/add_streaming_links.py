@@ -265,6 +265,7 @@ def _search_itunes(query: str, country: str = "ch") -> list[dict]:
         params={"term": query, "media": "music", "entity": "album", "limit": 25, "country": country},
     )
     if response.status_code != 200:
+        print(f"    iTunes search error {response.status_code} (country={country}): {response.text[:120]}")
         return []
     return response.json().get("results", [])
 
@@ -447,7 +448,7 @@ def get_albums_missing_links(client: Client) -> list[dict]:
     return response.data
 
 
-MAX_WORKERS = 5
+MAX_WORKERS = 1
 
 
 def _process_album(album: dict, client: Client, spotify_token: str | None) -> tuple[bool, bool, bool]:
