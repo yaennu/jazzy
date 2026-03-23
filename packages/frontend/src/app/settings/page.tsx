@@ -24,6 +24,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
     const [deleting, setDeleting] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const router = useRouter();
     const supabase = createClient();
 
@@ -65,6 +66,38 @@ export default function SettingsPage() {
         setLoading(false);
     };
 
+    const handleExportData = async () => {
+        if (!user) return;
+        setExporting(true);
+
+        const { data: userData } = await supabase
+            .from("users")
+            .select("email, name, subscription_status, newsletter_frequency, created_at")
+            .eq("user_id", user.id)
+            .single();
+
+        const { data: recommendations } = await supabase
+            .from("recommendations")
+            .select("sent_date, albums(title, artist, release_year)")
+            .eq("user_id", user.id)
+            .order("sent_date", { ascending: false });
+
+        const exportData = {
+            exported_at: new Date().toISOString(),
+            account: userData,
+            recommendations: recommendations ?? [],
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "jazzy-my-data.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        setExporting(false);
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push("/login");
@@ -103,6 +136,15 @@ export default function SettingsPage() {
                 <Button variant="outline" className="w-full" onClick={handleLogout}>
                     Logout
                 </Button>
+                <div className="border-t pt-6">
+                    <h2 className="text-sm font-semibold text-gray-700">Your Data</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Download a copy of all your personal data as a JSON file.
+                    </p>
+                    <Button variant="outline" className="w-full mt-3" onClick={handleExportData} disabled={exporting}>
+                        {exporting ? "Exporting..." : "Export My Data"}
+                    </Button>
+                </div>
                 <div className="border-t pt-6">
                     <h2 className="text-sm font-semibold text-red-600">Danger Zone</h2>
                     <p className="mt-1 text-sm text-gray-500">

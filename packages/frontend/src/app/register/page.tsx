@@ -7,11 +7,14 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [consent, setConsent] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -20,6 +23,12 @@ export default function RegisterPage() {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+
+        if (!consent) {
+            setError("You must accept the privacy policy to create an account.");
+            return;
+        }
+
         setLoading(true);
 
         const supabase = createClient();
@@ -91,9 +100,26 @@ export default function RegisterPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
-                        <Input id="password" type="password" required value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} />
+                        <div className="relative">
+                            <Input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} className="pr-10" />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <div className="flex items-start space-x-2">
+                        <input
+                            id="consent"
+                            type="checkbox"
+                            checked={consent}
+                            onChange={(e) => setConsent(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300"
+                        />
+                        <label htmlFor="consent" className="text-sm font-normal text-gray-600 leading-snug">
+                            I agree to the{" "}<Link href="/privacy" className="text-blue-600 hover:underline" target="_blank">Privacy Policy</Link>{" "}and consent to receiving jazz album recommendations via email.
+                        </label>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading || !consent}>
                         {loading ? "Creating account..." : "Register"}
                     </Button>
                 </form>

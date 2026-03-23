@@ -7,6 +7,8 @@ export interface WelcomeAlbum {
     streaming_link_apple?: string | null
     album_summary?: string | null
     artist_summary?: string | null
+    spotify_link_is_substitute?: boolean | null
+    apple_link_is_substitute?: boolean | null
 }
 
 function renderSummaries(albumSummary?: string | null, artistSummary?: string | null): string {
@@ -34,9 +36,10 @@ function renderSummaries(albumSummary?: string | null, artistSummary?: string | 
               </table>`
 }
 
-export function renderWelcomeEmail(userName: string, album: WelcomeAlbum): string {
-    const { title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary } = album
+export function renderWelcomeEmail(userName: string, album: WelcomeAlbum, unsubscribeUrl?: string): string {
+    const { title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary, spotify_link_is_substitute, apple_link_is_substitute } = album
     const yearText = release_year ? ` (${release_year})` : ''
+    const spotifyLabel = spotify_link_is_substitute && !apple_link_is_substitute ? 'Listen on Spotify (substitute)' : 'Listen on Spotify'
 
     let streamingButtons = ''
     if (streaming_link_spotify || streaming_link_apple) {
@@ -44,7 +47,7 @@ export function renderWelcomeEmail(userName: string, album: WelcomeAlbum): strin
         if (streaming_link_spotify) {
             buttons += `
                     <a href="${streaming_link_spotify}" class="streaming-btn" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
-                      Listen on Spotify
+                      ${spotifyLabel}
                     </a>`
         }
         if (streaming_link_apple) {
@@ -122,6 +125,7 @@ export function renderWelcomeEmail(userName: string, album: WelcomeAlbum): strin
           <tr>
             <td class="email-footer-td" style="padding: 24px 40px; border-top: 1px solid #e4e4e7; text-align: center;">
               <p style="margin: 0; color: #a1a1aa; font-size: 12px;">Jazzy &mdash; Discover jazz, one album at a time.</p>
+              ${unsubscribeUrl ? `<p style="margin: 8px 0 0; font-size: 12px;"><a href="${unsubscribeUrl}" style="color: #a1a1aa; text-decoration: underline;">Unsubscribe</a></p>` : ''}
             </td>
           </tr>
         </table>
