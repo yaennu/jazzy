@@ -6,6 +6,7 @@ Uses the Spotify Web API (Client Credentials) and the iTunes Search API.
 import concurrent.futures
 import os
 import sys
+import threading
 import time
 import unicodedata
 import re
@@ -22,6 +23,9 @@ SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
 ITUNES_LOOKUP_URL = "https://itunes.apple.com/lookup"
 ARTWORK_SIZE = "600x600"
+
+# Set when Spotify returns a long-term rate limit — signals all workers to skip Spotify
+_spotify_rate_limited = threading.Event()
 
 
 def get_supabase_client() -> Client:
@@ -122,16 +126,33 @@ def _match_spotify_result(
     return exact_match or fuzzy_match
 
 
+_SPOTIFY_RETRY_MAX = 30  # seconds — longer Retry-After means a hard ban, skip entirely
+
+
 def _search_spotify_query(token: str, query: str) -> list[dict]:
     """Run a Spotify search and return album items."""
-    response = requests.get(
-        SPOTIFY_SEARCH_URL,
-        headers={"Authorization": f"Bearer {token}"},
-        params={"q": query, "type": "album", "limit": 10},
-    )
-    if response.status_code != 200:
+    if _spotify_rate_limited.is_set():
         return []
-    return response.json().get("albums", {}).get("items", [])
+    for attempt in range(3):
+        response = requests.get(
+            SPOTIFY_SEARCH_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            params={"q": query, "type": "album", "limit": 10},
+        )
+        if response.status_code == 200:
+            return response.json().get("albums", {}).get("items", [])
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 2 ** attempt))
+            if retry_after > _SPOTIFY_RETRY_MAX:
+                print(f"    Spotify hard rate limit ({retry_after}s). Skipping all Spotify lookups.")
+                _spotify_rate_limited.set()
+                return []
+            print(f"    Spotify rate limited, retrying in {retry_after}s...")
+            time.sleep(retry_after)
+            continue
+        print(f"    Spotify search error {response.status_code}: {response.text[:120]}")
+        break
+    return []
 
 
 def search_spotify(
@@ -237,11 +258,11 @@ def _lookup_itunes_by_upc(upc: str) -> tuple[str, str | None] | None:
         return None
 
 
-def _search_itunes(query: str) -> list[dict]:
+def _search_itunes(query: str, country: str = "ch") -> list[dict]:
     """Run an iTunes Search API query and return album results."""
     response = requests.get(
         ITUNES_SEARCH_URL,
-        params={"term": query, "media": "music", "entity": "album", "limit": 25, "country": "ch"},
+        params={"term": query, "media": "music", "entity": "album", "limit": 25, "country": country},
     )
     if response.status_code != 200:
         return []
@@ -322,11 +343,11 @@ def _match_apple_result_loose(
     return None
 
 
-def _pick_artist_top_album(artist: str) -> tuple[str, str | None, str | None, str | None, int | None] | None:
+def _pick_artist_top_album(artist: str, country: str = "ch") -> tuple[str, str | None, str | None, str | None, int | None] | None:
     """Return the collectionViewUrl, artworkUrl, title, artist, year of the artist's most popular album on iTunes."""
     ascii_artist = _to_search_query(artist)
     norm_artist = _normalize(artist)
-    results = _search_itunes(ascii_artist)
+    results = _search_itunes(ascii_artist, country)
     for result in results:
         r_artist = _normalize(result.get("artistName", ""))
         if norm_artist in r_artist or r_artist in norm_artist:
@@ -342,10 +363,11 @@ def _pick_artist_top_album(artist: str) -> tuple[str, str | None, str | None, st
 
 
 def search_apple_music(
-    title: str, artist: str, release_year: int | None
+    title: str, artist: str, release_year: int | None, country: str = "ch"
 ) -> tuple[str | None, str | None, bool, dict | None]:
     """Try multiple iTunes search strategies with progressively looser queries.
 
+    Searches the given storefront first; falls back to the US store if nothing is found.
     Returns (url, artwork_url, is_substitute, sub_meta) where sub_meta is a dict
     with {title, artist, release_year} when is_substitute is True, else None.
     """
@@ -384,7 +406,7 @@ def search_apple_music(
     ]
 
     for query, match_title, match_artist in attempts:
-        results = _search_itunes(query)
+        results = _search_itunes(query, country)
         match = _match_apple_result(results, match_title, match_artist, release_year)
         if match:
             url, artwork = match
@@ -393,7 +415,7 @@ def search_apple_music(
 
     # Strategy 9: artist + year loose match
     if release_year:
-        results = _search_itunes(f"{ascii_artist} {release_year}")
+        results = _search_itunes(f"{ascii_artist} {release_year}", country)
         match = _match_apple_result_loose(results, artist, release_year)
         if match:
             url, artwork, sub_title, sub_artist, sub_year = match
@@ -401,10 +423,14 @@ def search_apple_music(
         time.sleep(0.2)
 
     # Fall back to artist's most popular album
-    match = _pick_artist_top_album(artist)
+    match = _pick_artist_top_album(artist, country)
     if match:
         url, artwork, sub_title, sub_artist, sub_year = match
         return url, artwork, True, {"title": sub_title, "artist": sub_artist, "release_year": sub_year}
+
+    # Nothing found in this storefront — retry in the US store
+    if country != "us":
+        return search_apple_music(title, artist, release_year, country="us")
 
     return None, None, False, None
 
@@ -432,34 +458,6 @@ def _process_album(album: dict, client: Client, spotify_token: str | None) -> tu
     updates = {}
 
     print(f"  {title} — {artist}")
-
-    if album["streaming_link_spotify"] is None and not album.get("spotify_link_is_substitute") and spotify_token:
-        # Try Apple Music → Spotify UPC bridge first (high confidence)
-        apple_url = album.get("streaming_link_apple")
-        spotify_url = None
-        if apple_url:
-            upc = _get_itunes_album_upc(apple_url)
-            if upc:
-                spotify_url = _search_spotify_by_upc(spotify_token, upc)
-                if spotify_url:
-                    updates["streaming_link_spotify"] = spotify_url
-                    updates["spotify_link_is_substitute"] = False
-                    print(f"    Spotify (via UPC): {spotify_url}")
-
-        if not spotify_url:
-            url, is_sub = search_spotify(spotify_token, title, artist, release_year)
-            if url:
-                updates["streaming_link_spotify"] = url
-                updates["spotify_link_is_substitute"] = is_sub
-                if is_sub:
-                    print(f"    Spotify (substitute): {url}")
-                else:
-                    print(f"    Spotify: {url}")
-            else:
-                print("    Spotify: not found")
-        time.sleep(0.5)
-
-    spotify_sub = updates.get("spotify_link_is_substitute", False)
 
     if album["streaming_link_apple"] is None and not album.get("apple_link_is_substitute"):
         # Try Spotify → Apple UPC bridge first (high confidence)
@@ -509,6 +507,35 @@ def _process_album(album: dict, client: Client, spotify_token: str | None) -> tu
         time.sleep(0.5)
 
     apple_sub = updates.get("apple_link_is_substitute", False)
+
+    if album["streaming_link_spotify"] is None and not album.get("spotify_link_is_substitute") and spotify_token and not _spotify_rate_limited.is_set():
+        # Try Apple Music → Spotify UPC bridge first (high confidence)
+        # Use Apple link just found above, or one already in the DB
+        apple_url = updates.get("streaming_link_apple") or album.get("streaming_link_apple")
+        spotify_url = None
+        if apple_url:
+            upc = _get_itunes_album_upc(apple_url)
+            if upc:
+                spotify_url = _search_spotify_by_upc(spotify_token, upc)
+                if spotify_url:
+                    updates["streaming_link_spotify"] = spotify_url
+                    updates["spotify_link_is_substitute"] = False
+                    print(f"    Spotify (via UPC): {spotify_url}")
+
+        if not spotify_url:
+            url, is_sub = search_spotify(spotify_token, title, artist, release_year)
+            if url:
+                updates["streaming_link_spotify"] = url
+                updates["spotify_link_is_substitute"] = is_sub
+                if is_sub:
+                    print(f"    Spotify (substitute): {url}")
+                else:
+                    print(f"    Spotify: {url}")
+            else:
+                print("    Spotify: not found")
+        time.sleep(0.5)
+
+    spotify_sub = updates.get("spotify_link_is_substitute", False)
 
     if updates:
         client.table("albums").update(updates).eq("album_id", album["album_id"]).execute()
