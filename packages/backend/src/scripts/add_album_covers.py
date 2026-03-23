@@ -3,6 +3,7 @@ Look up album cover art for albums that have an Apple Music link but no cover im
 Uses the iTunes Search API to find artwork URLs.
 """
 
+import concurrent.futures
 import os
 import re
 import sys
@@ -141,6 +142,46 @@ def get_albums_missing_covers(client: Client) -> list[dict]:
     return response.data
 
 
+MAX_WORKERS = 5
+
+
+def _process_album(album: dict, client) -> bool:
+    """Look up and store cover art for a single album. Returns True if updated."""
+    title = album["title"]
+    artist = album["artist"]
+    release_year = album.get("release_year")
+
+    print(f"  {title} — {artist}")
+
+    cover_url = None
+
+    # Try direct iTunes lookup via collection ID from Apple Music URL
+    apple_url = album.get("streaming_link_apple")
+    if apple_url:
+        collection_id = _extract_collection_id(apple_url)
+        if collection_id:
+            cover_url = _lookup_cover_by_id(collection_id)
+            if cover_url:
+                print(f"    Cover (via lookup): {cover_url}")
+
+    # Fall back to search
+    if not cover_url:
+        cover_url = search_cover(title, artist, release_year)
+        if cover_url:
+            print(f"    Cover: {cover_url}")
+
+    if cover_url:
+        client.table("albums").update({"cover_image_url": cover_url}).eq(
+            "album_id", album["album_id"]
+        ).execute()
+        time.sleep(0.5)
+        return True
+
+    print("    Cover: not found")
+    time.sleep(0.5)
+    return False
+
+
 def main():
     print("Looking up album cover art...")
 
@@ -151,41 +192,11 @@ def main():
     if not albums:
         return
 
-    updated = 0
-    for album in albums:
-        title = album["title"]
-        artist = album["artist"]
-        release_year = album.get("release_year")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [executor.submit(_process_album, album, client) for album in albums]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-        print(f"  {title} — {artist}")
-
-        cover_url = None
-
-        # Try direct iTunes lookup via collection ID from Apple Music URL
-        apple_url = album.get("streaming_link_apple")
-        if apple_url:
-            collection_id = _extract_collection_id(apple_url)
-            if collection_id:
-                cover_url = _lookup_cover_by_id(collection_id)
-                if cover_url:
-                    print(f"    Cover (via lookup): {cover_url}")
-
-        # Fall back to search
-        if not cover_url:
-            cover_url = search_cover(title, artist, release_year)
-            if cover_url:
-                print(f"    Cover: {cover_url}")
-
-        if cover_url:
-            client.table("albums").update({"cover_image_url": cover_url}).eq(
-                "album_id", album["album_id"]
-            ).execute()
-            updated += 1
-        else:
-            print("    Cover: not found")
-
-        time.sleep(0.5)
-
+    updated = sum(1 for r in results if r)
     print(f"\nDone. Updated {updated}/{len(albums)} album(s).")
 
 

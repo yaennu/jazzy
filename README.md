@@ -150,4 +150,15 @@ uv run python src/scripts/add_album_summaries.py
 ```
 
 Requires `PERPLEXITY_API_KEY` in `.env.local`.
+
+### Verify Album Records
+
+Verifies the consistency of all album records in the database (title, artist, release year, label, summaries, streaming links, etc.) using the Claude Agent SDK. Runs albums in parallel batches and writes findings to an xlsx file in `packages/backend/output/`.
+
+```bash
+cd packages/backend
+uv run python src/verify_album_records.py
+```
+
+Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Uses Claude Code's authentication — no separate `ANTHROPIC_API_KEY` needed.
     

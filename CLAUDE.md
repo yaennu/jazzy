@@ -19,10 +19,12 @@ jazzy/
 │   │       ├── lib/           # Utilities & Supabase client setup
 │   │       └── email-templates/ # Email HTML templates
 │   └── backend/           # Python backend scripts
+│       ├── output/            # Verification script output (xlsx files)
 │       └── src/
-│           ├── main.py            # Album seeding orchestrator (runs all scripts in sequence)
+│           ├── main.py            # Album seeding orchestrator (runs all scripts in parallel)
 │           ├── email_template.py  # Recommendation email HTML template
 │           ├── send_recommendations.py  # Email sending script (used by GitHub Actions)
+│           ├── verify_album_records.py  # Album record verification (Claude Agent SDK)
 │           └── scripts/
 │               ├── extract_album_data.py  # Vision-based album data extraction (Gemini)
 │               ├── add_streaming_links.py # Spotify & Apple Music link lookup
@@ -121,6 +123,10 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 - Album cover art lookup script (iTunes Search API)
 - Album cover image in recommendation emails
 - Database seeding via GitHub Actions workflow
+- Parallelized seeding pipeline (extraction, streaming links, covers, summaries run concurrently)
+- Album record verification script using Claude Agent SDK (outputs xlsx report to `packages/backend/output/`)
+- Substitute link labeling in recommendation emails (flags Apple Music or Spotify substitutes)
+- Original album metadata preservation on Apple Music substitution (`original_title`, `original_artist`, `original_release_year` columns)
 
 **Not yet implemented:**
 - Tests
@@ -133,7 +139,8 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `supabase/migrations/` | Database schema migrations |
 | `packages/frontend/src/lib/supabase/` | Supabase client setup (browser, server, middleware) |
 | `packages/frontend/src/app/` | Next.js pages and API routes |
-| `packages/backend/src/main.py` | Album seeding orchestrator (runs extraction + enrichment scripts) |
+| `packages/backend/src/main.py` | Album seeding orchestrator (runs extraction + enrichment scripts in parallel) |
+| `packages/backend/src/verify_album_records.py` | Album record consistency verification (Claude Agent SDK, xlsx output) |
 | `packages/backend/src/email_template.py` | Recommendation email HTML template |
 | `packages/backend/src/send_recommendations.py` | Email sending script (Resend + frequency logic) |
 | `packages/backend/src/scripts/extract_album_data.py` | Vision-based album data extraction (Gemini) |
@@ -144,3 +151,4 @@ The project-ref is found in your Supabase project URL: `https://app.supabase.com
 | `.github/workflows/send-recommendations.yml` | Cron workflow for daily email recommendations |
 | `.github/workflows/seed-database.yml` | Manual workflow for database seeding |
 | `docs/folder-structure.md` | Architecture rationale and structure proposal |
+| `docs/application-flow.md` | Mermaid diagrams of application logic flows |
