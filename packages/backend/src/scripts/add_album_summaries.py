@@ -7,6 +7,7 @@ Run manually after seeding the database:
     uv run python src/scripts/add_album_summaries.py
 """
 
+import concurrent.futures
 import os
 import re
 import sys
@@ -73,16 +74,23 @@ Your entire response must be a single line of text with no newline characters.""
             {"role": "user", "content": prompt},
         ],
     }
-    try:
-        response = requests.post(
-            PERPLEXITY_API_URL, headers=headers, json=payload, timeout=30
-        )
-        response.raise_for_status()
-        text = response.json()["choices"][0]["message"]["content"].strip()
-        return re.sub(r"\[\d+\]", "", text).strip()
-    except Exception as e:
-        print(f"    Perplexity error: {e}")
-        return None
+    for attempt in range(4):
+        response = None
+        try:
+            response = requests.post(
+                PERPLEXITY_API_URL, headers=headers, json=payload, timeout=30
+            )
+            response.raise_for_status()
+            text = response.json()["choices"][0]["message"]["content"].strip()
+            return re.sub(r"\[\d+\]", "", text).strip()
+        except Exception as e:
+            if response is not None and response.status_code == 429 and attempt < 3:
+                wait = 10 * (2 ** attempt)  # 10s, 20s, 40s
+                print(f"    Rate limited, retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"    Perplexity error: {e}")
+                return None
 
 
 def get_albums_missing_summaries(client: Client) -> list[dict]:
@@ -94,6 +102,64 @@ def get_albums_missing_summaries(client: Client) -> list[dict]:
         .execute()
     )
     return response.data
+
+
+MAX_WORKERS = 2
+
+
+def _process_album(album: dict, client: Client, api_key: str) -> bool:
+    """Generate and store summaries for a single album. Returns True if updated."""
+    title = album["title"]
+    artist = album["artist"]
+    release_year = album.get("release_year")
+    year_str = f" ({release_year})" if release_year else ""
+
+    print(f"  {title}{year_str} — {artist}")
+
+    updates: dict = {}
+
+    if album.get("artist_summary") is None:
+        prompt = f"""\
+Write a {SUMMARY_TARGET_WORDS}-word biographical summary of the jazz musician \
+"{artist}". Cover their background, musical style, and significance in jazz history. \
+Search for accurate information from Wikipedia and music reference sources."""
+        summary = query_perplexity(api_key, prompt)
+        if summary:
+            updates["artist_summary"] = summary
+            print(f"    Artist summary: {len(summary.split())} words")
+        else:
+            print("    Artist summary: failed")
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+    if album.get("album_summary") is None:
+        artist_summary = updates.get("artist_summary") or album.get("artist_summary") or ""
+        artist_context = ""
+        if artist_summary:
+            artist_context = f"""
+
+The reader will already see this artist bio alongside the album summary, \
+so do NOT repeat biographical details:
+\"{artist_summary}\""""
+        prompt = f"""\
+Write a {SUMMARY_TARGET_WORDS}-word summary of the jazz album \
+"{title}"{year_str} by {artist}. Cover its musical style, recording context, \
+key tracks, and why it matters in the jazz canon. \
+Search for accurate information from Wikipedia and music reference sources. \
+If you do not find any specific information about the above mentioned jazz album, \
+then write something about his general musical style.{artist_context}"""
+        summary = query_perplexity(api_key, prompt)
+        if summary:
+            updates["album_summary"] = summary
+            print(f"    Album summary: {len(summary.split())} words")
+        else:
+            print("    Album summary: failed")
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+    if updates:
+        client.table("albums").update(updates).eq("album_id", album["album_id"]).execute()
+        return True
+
+    return False
 
 
 def main():
@@ -108,62 +174,14 @@ def main():
     if not albums:
         return
 
-    updated = 0
-    for album in albums:
-        title = album["title"]
-        artist = album["artist"]
-        release_year = album.get("release_year")
-        year_str = f" ({release_year})" if release_year else ""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [
+            executor.submit(_process_album, album, client, api_key)
+            for album in albums
+        ]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-        print(f"  {title}{year_str} — {artist}")
-
-        updates: dict = {}
-
-        if album.get("artist_summary") is None:
-            prompt = f"""\
-Write a {SUMMARY_TARGET_WORDS}-word biographical summary of the jazz musician \
-"{artist}". Cover their background, musical style, and significance in jazz history. \
-Search for accurate information from Wikipedia and music reference sources."""
-            summary = query_perplexity(api_key, prompt)
-            if summary:
-                updates["artist_summary"] = summary
-                print(f"    Artist summary: {len(summary.split())} words")
-            else:
-                print("    Artist summary: failed")
-            time.sleep(REQUEST_DELAY_SECONDS)
-
-        if album.get("album_summary") is None:
-            artist_summary = (
-                updates.get("artist_summary") or album.get("artist_summary") or ""
-            )
-            artist_context = ""
-            if artist_summary:
-                artist_context = f"""
-
-The reader will already see this artist bio alongside the album summary, \
-so do NOT repeat biographical details:
-\"{artist_summary}\""""
-            prompt = f"""\
-Write a {SUMMARY_TARGET_WORDS}-word summary of the jazz album \
-"{title}"{year_str} by {artist}. Cover its musical style, recording context, \
-key tracks, and why it matters in the jazz canon. \
-Search for accurate information from Wikipedia and music reference sources. \
-If you do not find any specific information about the above mentioned jazz album, \
-then write something about his general musical style.{artist_context}"""
-            summary = query_perplexity(api_key, prompt)
-            if summary:
-                updates["album_summary"] = summary
-                print(f"    Album summary: {len(summary.split())} words")
-            else:
-                print("    Album summary: failed")
-            time.sleep(REQUEST_DELAY_SECONDS)
-
-        if updates:
-            client.table("albums").update(updates).eq(
-                "album_id", album["album_id"]
-            ).execute()
-            updated += 1
-
+    updated = sum(1 for r in results if r)
     print(f"\nDone. Updated {updated}/{len(albums)} album(s).")
 
 

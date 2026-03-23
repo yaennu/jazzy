@@ -9,11 +9,13 @@ Requires GEMINI_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY to be set
 in packages/backend/.env.local (set PRODUCTION=True to use .env.production)
 """
 
+import concurrent.futures
 import json
 import os
 import re
 import sys
 import tempfile
+import time
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -148,13 +150,21 @@ def extract_album_info_from_image(image_path, model=MODEL_NAME):
         with open(cropped_path, "rb") as f:
             image_bytes = f.read()
 
-        response = client.models.generate_content(
-            model=model,
-            contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
-                EXTRACTION_PROMPT,
-            ],
-        )
+        contents = [
+            types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+            EXTRACTION_PROMPT,
+        ]
+        for attempt in range(4):
+            try:
+                response = client.models.generate_content(model=model, contents=contents)
+                break
+            except Exception as e:
+                if "429" in str(e) and attempt < 3:
+                    wait = 5 * (2 ** attempt)  # 5s, 10s, 20s
+                    print(f"  Rate limited on {os.path.basename(image_path)}, retrying in {wait}s...")
+                    time.sleep(wait)
+                else:
+                    raise
 
         raw_text = response.text
         data = _parse_json_from_response(raw_text)
@@ -248,6 +258,33 @@ def upsert_albums_to_db(supabase: Client, albums: list[dict]) -> None:
     print(f"Upsert complete: {inserted} inserted, {updated} updated, {skipped} skipped.")
 
 
+MAX_WORKERS = 5
+
+
+def _process_image_file(image_path: str, existing_by_filename: dict) -> dict | None:
+    """Extract album info from a single image. Returns album dict or None."""
+    filename = os.path.basename(image_path)
+    existing = existing_by_filename.get(filename)
+
+    if existing and all(existing.get(col) is not None for col in EXTRACTION_COLS):
+        print(f"Skipping {filename} (already complete in DB)")
+        return None
+
+    print(f"Processing {filename}...")
+    album_info = extract_album_info_from_image(image_path)
+
+    if (
+        album_info
+        and album_info["title"].strip()
+        and album_info["title"] != "Unknown Title"
+    ):
+        album_info["image_filename"] = filename
+        return album_info
+
+    print(f"Could not extract valid information from {image_path}")
+    return None
+
+
 def main():
     """
     Main function to extract album data from photos and insert into the database.
@@ -264,30 +301,19 @@ def main():
     existing_rows = db_client.table("albums").select(", ".join(EXTRACTION_COLS)).execute()
     existing_by_filename = {row["image_filename"]: row for row in existing_rows.data if row.get("image_filename")}
 
-    all_albums_data = []
+    print(f"Found {len(png_files)} images. Processing with up to {MAX_WORKERS} workers...\n")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [
+            executor.submit(_process_image_file, image_path, existing_by_filename)
+            for image_path in png_files
+        ]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-    total = len(png_files)
-    for i, image_path in enumerate(png_files, 1):
-        filename = os.path.basename(image_path)
-        existing = existing_by_filename.get(filename)
+    all_albums_data = [r for r in results if r is not None]
 
-        if existing and all(existing.get(col) is not None for col in EXTRACTION_COLS):
-            print(f"Skipping {i}/{total}: {filename} (already complete in DB)")
-            continue
-
-        print(f"Processing {i}/{total}: {filename}...")
-        album_info = extract_album_info_from_image(image_path)
-
-        if (
-            album_info
-            and album_info["title"].strip()
-            and album_info["title"] != "Unknown Title"
-        ):
-            album_info["image_filename"] = filename
-            all_albums_data.append(album_info)
-        else:
-            print(f"Could not extract valid information from {image_path}")
-
+    # Create a fresh client — the original connection may have gone stale
+    # during the long image processing phase.
+    db_client = get_supabase_client()
     upsert_albums_to_db(db_client, all_albums_data)
     print(f"\nSuccessfully extracted data for {len(all_albums_data)} albums.")
 
