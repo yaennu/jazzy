@@ -23,7 +23,7 @@ async function sendWelcomeRecommendation(user: { id: string; email?: string; use
 
     const { data: album, error: albumError } = await admin
         .from('albums')
-        .select('title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary')
+        .select('title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary, spotify_link_is_substitute, apple_link_is_substitute')
         .eq('album_id', albumId)
         .single()
 
