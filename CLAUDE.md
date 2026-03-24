@@ -4,7 +4,7 @@
 
 Jazzy is a web application where users subscribe to receive periodic jazz album recommendations via email. It is a monorepo using Supabase (PostgreSQL) as the database backend.
 
-**License:** GPLv3
+**License:** Proprietary (source-available for evaluation only)
 
 ## Repository Structure
 
