@@ -13,11 +13,11 @@ def _render_summaries(album_summary: str | None, artist_summary: str | None) -> 
     if album_summary:
         inner += f'''
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About this album</p>
-                <p style="margin: 0{' 0 20px' if artist_summary else ''}; color: #52525b; font-size: 14px; line-height: 1.7;">{album_summary}</p>'''
+                <p class="summary-text" style="margin: 0{' 0 20px' if artist_summary else ''}; color: #52525b; font-size: 14px; line-height: 1.7;">{album_summary}</p>'''
     if artist_summary:
         inner += f'''
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About the artist</p>
-                <p style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">{artist_summary}</p>'''
+                <p class="summary-text" style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">{artist_summary}</p>'''
 
     return f'''
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 24px;">
@@ -98,6 +98,11 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
       .streaming-td {{
         padding-top: 16px !important;
       }}
+    }}
+    .summary-text a {{
+      color: #52525b !important;
+      text-decoration: underline dotted #a1a1aa !important;
+      text-underline-offset: 2px;
     }}
   </style>
 </head>

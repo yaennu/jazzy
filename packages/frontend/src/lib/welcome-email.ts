@@ -16,12 +16,12 @@ function renderSummaries(albumSummary?: string | null, artistSummary?: string | 
     if (albumSummary) {
         inner += `
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About this album</p>
-                <p style="margin: 0${artistSummary ? ' 0 20px' : ''}; color: #52525b; font-size: 14px; line-height: 1.7;">${albumSummary}</p>`
+                <p class="summary-text" style="margin: 0${artistSummary ? ' 0 20px' : ''}; color: #52525b; font-size: 14px; line-height: 1.7;">${albumSummary}</p>`
     }
     if (artistSummary) {
         inner += `
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About the artist</p>
-                <p style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">${artistSummary}</p>`
+                <p class="summary-text" style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">${artistSummary}</p>`
     }
 
     return `
@@ -82,6 +82,11 @@ export function renderWelcomeEmail(userName: string, album: WelcomeAlbum, unsubs
       .album-cover img { width: 100% !important; max-width: 260px !important; }
       .streaming-btn { display: block !important; margin: 6px auto !important; min-width: 200px !important; width: 80% !important; max-width: 260px !important; }
       .streaming-td { padding-top: 16px !important; }
+    }
+    .summary-text a {
+      color: #52525b !important;
+      text-decoration: underline dotted #a1a1aa !important;
+      text-underline-offset: 2px;
     }
   </style>
 </head>
