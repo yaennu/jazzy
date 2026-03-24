@@ -7,8 +7,6 @@ export interface WelcomeAlbum {
     streaming_link_apple?: string | null
     album_summary?: string | null
     artist_summary?: string | null
-    spotify_link_is_substitute?: boolean | null
-    apple_link_is_substitute?: boolean | null
 }
 
 function renderSummaries(albumSummary?: string | null, artistSummary?: string | null): string {
@@ -18,12 +16,12 @@ function renderSummaries(albumSummary?: string | null, artistSummary?: string | 
     if (albumSummary) {
         inner += `
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About this album</p>
-                <p style="margin: 0${artistSummary ? ' 0 20px' : ''}; color: #52525b; font-size: 14px; line-height: 1.7;">${albumSummary}</p>`
+                <p class="summary-text" style="margin: 0${artistSummary ? ' 0 20px' : ''}; color: #52525b; font-size: 14px; line-height: 1.7;">${albumSummary}</p>`
     }
     if (artistSummary) {
         inner += `
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About the artist</p>
-                <p style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">${artistSummary}</p>`
+                <p class="summary-text" style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">${artistSummary}</p>`
     }
 
     return `
@@ -37,9 +35,8 @@ function renderSummaries(albumSummary?: string | null, artistSummary?: string | 
 }
 
 export function renderWelcomeEmail(userName: string, album: WelcomeAlbum, unsubscribeUrl?: string): string {
-    const { title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary, spotify_link_is_substitute, apple_link_is_substitute } = album
+    const { title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary } = album
     const yearText = release_year ? ` (${release_year})` : ''
-    const spotifyLabel = spotify_link_is_substitute && !apple_link_is_substitute ? 'Listen on Spotify (substitute)' : 'Listen on Spotify'
 
     let streamingButtons = ''
     if (streaming_link_spotify || streaming_link_apple) {
@@ -47,7 +44,7 @@ export function renderWelcomeEmail(userName: string, album: WelcomeAlbum, unsubs
         if (streaming_link_spotify) {
             buttons += `
                     <a href="${streaming_link_spotify}" class="streaming-btn" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
-                      ${spotifyLabel}
+                      Listen on Spotify
                     </a>`
         }
         if (streaming_link_apple) {
@@ -85,6 +82,11 @@ export function renderWelcomeEmail(userName: string, album: WelcomeAlbum, unsubs
       .album-cover img { width: 100% !important; max-width: 260px !important; }
       .streaming-btn { display: block !important; margin: 6px auto !important; min-width: 200px !important; width: 80% !important; max-width: 260px !important; }
       .streaming-td { padding-top: 16px !important; }
+    }
+    .summary-text a {
+      color: #52525b !important;
+      text-decoration: underline dotted #a1a1aa !important;
+      text-underline-offset: 2px;
     }
   </style>
 </head>

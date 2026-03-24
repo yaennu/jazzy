@@ -13,11 +13,11 @@ def _render_summaries(album_summary: str | None, artist_summary: str | None) -> 
     if album_summary:
         inner += f'''
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About this album</p>
-                <p style="margin: 0{' 0 20px' if artist_summary else ''}; color: #52525b; font-size: 14px; line-height: 1.7;">{album_summary}</p>'''
+                <p class="summary-text" style="margin: 0{' 0 20px' if artist_summary else ''}; color: #52525b; font-size: 14px; line-height: 1.7;">{album_summary}</p>'''
     if artist_summary:
         inner += f'''
                 <p style="margin: 0 0 8px; color: #18181b; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">About the artist</p>
-                <p style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">{artist_summary}</p>'''
+                <p class="summary-text" style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.7;">{artist_summary}</p>'''
 
     return f'''
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 24px;">
@@ -38,9 +38,6 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
     apple_link = album.get("streaming_link_apple")
     artist_summary = album.get("artist_summary")
     album_summary = album.get("album_summary")
-    spotify_is_substitute = album.get("spotify_link_is_substitute", False)
-    apple_is_substitute = album.get("apple_link_is_substitute", False)
-    spotify_label = "Listen on Spotify (substitute)" if spotify_is_substitute and not apple_is_substitute else "Listen on Spotify"
 
     year_text = f" ({release_year})" if release_year else ""
 
@@ -50,7 +47,7 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
         if spotify_link:
             buttons += f'''
                     <a href="{spotify_link}" class="streaming-btn" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
-                      {spotify_label}
+                      Listen on Spotify
                     </a>'''
         if apple_link:
             buttons += f'''
@@ -101,6 +98,11 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
       .streaming-td {{
         padding-top: 16px !important;
       }}
+    }}
+    .summary-text a {{
+      color: #52525b !important;
+      text-decoration: underline dotted #a1a1aa !important;
+      text-underline-offset: 2px;
     }}
   </style>
 </head>

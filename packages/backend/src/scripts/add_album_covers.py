@@ -38,18 +38,35 @@ def _normalize(text: str) -> str:
     return text.strip().lower()
 
 
+def _itunes_get(url: str, params: dict, max_retries: int = 5) -> requests.Response | None:
+    """GET request to iTunes API with exponential backoff on 429."""
+    delay = 5
+    for attempt in range(max_retries):
+        response = requests.get(url, params=params)
+        if response.status_code == 429:
+            print(f"    iTunes rate limit (429), retrying in {delay}s...")
+            time.sleep(delay)
+            delay *= 2
+            continue
+        return response
+    print(f"    iTunes rate limit persists after {max_retries} retries, skipping.")
+    return None
+
+
 def _search_itunes(query: str) -> list[dict]:
     """Run an iTunes Search API query and return album results."""
-    response = requests.get(
+    response = _itunes_get(
         ITUNES_SEARCH_URL,
         params={"term": query, "media": "music", "entity": "album", "limit": 10},
     )
-    if response.status_code != 200:
+    if response is None or response.status_code != 200:
         return []
     return response.json().get("results", [])
 
 
-def _match_artwork(results: list[dict], title: str, artist: str, release_year: int | None) -> str | None:
+def _match_artwork(
+    results: list[dict], title: str, artist: str, release_year: int | None
+) -> str | None:
     """Find the best matching album artwork from iTunes results."""
     norm_title = _normalize(title)
     norm_artist = _normalize(artist)
@@ -62,7 +79,9 @@ def _match_artwork(results: list[dict], title: str, artist: str, release_year: i
         r_artist = _normalize(result.get("artistName", ""))
         r_date = result.get("releaseDate", "")
 
-        print(f"      iTunes result: \"{result.get('collectionName')}\" by {result.get('artistName')} ({r_date[:4] if r_date else '?'})")
+        print(
+            f"      iTunes result: \"{result.get('collectionName')}\" by {result.get('artistName')} ({r_date[:4] if r_date else '?'})"
+        )
 
         if norm_title not in r_title and r_title not in norm_title:
             continue
@@ -100,8 +119,8 @@ def _extract_collection_id(apple_music_url: str) -> str | None:
 def _lookup_cover_by_id(collection_id: str) -> str | None:
     """Look up album artwork directly via iTunes Lookup API using collection ID."""
     try:
-        response = requests.get(ITUNES_LOOKUP_URL, params={"id": collection_id})
-        if response.status_code != 200:
+        response = _itunes_get(ITUNES_LOOKUP_URL, params={"id": collection_id})
+        if response is None or response.status_code != 200:
             return None
         results = response.json().get("results", [])
         for result in results:
@@ -142,7 +161,7 @@ def get_albums_missing_covers(client: Client) -> list[dict]:
     return response.data
 
 
-MAX_WORKERS = 5
+MAX_WORKERS = 1
 
 
 def _process_album(album: dict, client) -> bool:
