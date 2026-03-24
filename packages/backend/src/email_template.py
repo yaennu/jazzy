@@ -38,9 +38,6 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
     apple_link = album.get("streaming_link_apple")
     artist_summary = album.get("artist_summary")
     album_summary = album.get("album_summary")
-    spotify_is_substitute = album.get("spotify_link_is_substitute", False)
-    apple_is_substitute = album.get("apple_link_is_substitute", False)
-    spotify_label = "Listen on Spotify (substitute)" if spotify_is_substitute and not apple_is_substitute else "Listen on Spotify"
 
     year_text = f" ({release_year})" if release_year else ""
 
@@ -50,7 +47,7 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
         if spotify_link:
             buttons += f'''
                     <a href="{spotify_link}" class="streaming-btn" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
-                      {spotify_label}
+                      Listen on Spotify
                     </a>'''
         if apple_link:
             buttons += f'''
