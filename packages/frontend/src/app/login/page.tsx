@@ -32,17 +32,17 @@ export default function LoginPage() {
             setError(error.message);
             setLoading(false);
         } else {
-            router.push("/settings");
+            router.push("/history");
             router.refresh();
         }
     };
 
     return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+            <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
                 <div className="text-center">
                     <h1 className="text-3xl font-bold">Login</h1>
-                    <p className="mt-2 text-sm text-gray-600">Welcome back</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Welcome back</p>
                 </div>
                 <form onSubmit={handleLogin} className="space-y-6">
                     {error && (
@@ -50,7 +50,7 @@ export default function LoginPage() {
                     )}
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="m@example.com" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
+                        <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
@@ -59,7 +59,7 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword((v) => !v)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-muted-foreground"
                                 tabIndex={-1}
                             >
                                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -73,7 +73,7 @@ export default function LoginPage() {
                         {loading ? "Logging in..." : "Login"}
                     </Button>
                 </form>
-                <p className="text-center text-sm text-gray-600">
+                <p className="text-center text-sm text-muted-foreground">
                     Don&apos;t have an account? <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
                 </p>
             </div>

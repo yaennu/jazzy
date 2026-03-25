@@ -37,7 +37,7 @@ export default function ResetPasswordPage() {
             setError(error.message);
             setLoading(false);
         } else {
-            router.push("/settings");
+            router.push("/history");
             router.refresh();
         }
     };

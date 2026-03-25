@@ -21,8 +21,10 @@ import { useRouter } from "next/navigation";
 export default function SettingsPage() {
     const [frequency, setFrequency] = useState("weekly");
     const [user, setUser] = useState<{ id: string } | null>(null);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [isError, setIsError] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [exporting, setExporting] = useState(false);
     const router = useRouter();
@@ -42,6 +44,7 @@ export default function SettingsPage() {
                     setFrequency(data.newsletter_frequency);
                 }
             }
+            setInitialLoading(false);
         };
         getUser();
     }, [supabase]);
@@ -49,6 +52,7 @@ export default function SettingsPage() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setMessage("");
+        setIsError(false);
         setLoading(true);
 
         if (user) {
@@ -59,8 +63,10 @@ export default function SettingsPage() {
 
             if (error) {
                 setMessage(error.message);
+                setIsError(true);
             } else {
                 setMessage("Settings saved!");
+                setIsError(false);
             }
         }
         setLoading(false);
@@ -104,29 +110,61 @@ export default function SettingsPage() {
         router.refresh();
     };
 
+    if (initialLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
+                    <div className="space-y-2">
+                        <div className="h-8 w-48 mx-auto bg-gray-200 rounded animate-pulse" />
+                        <div className="h-4 w-64 mx-auto bg-gray-200 rounded animate-pulse" />
+                    </div>
+                    <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="flex items-center space-x-2">
+                                <div className="h-4 w-4 bg-gray-200 rounded-full animate-pulse" />
+                                <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="h-10 w-full bg-gray-200 rounded animate-pulse" />
+                    <div className="h-10 w-full bg-gray-200 rounded animate-pulse" />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+            <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
                 <div className="text-center">
                     <h1 className="text-3xl font-bold">Newsletter Settings</h1>
-                    <p className="mt-2 text-sm text-gray-600">Choose how often you want to receive the newsletter.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Choose how often you want to receive the newsletter.</p>
                 </div>
                 <form onSubmit={handleSave} className="space-y-6">
                     {message && (
-                        <p className="text-sm text-center text-gray-600">{message}</p>
+                        <p className={`text-sm text-center ${isError ? "text-red-600" : "text-green-600"}`}>{message}</p>
                     )}
                     <RadioGroup value={frequency} onValueChange={setFrequency}>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="daily" id="daily" />
-                            <Label htmlFor="daily">Daily</Label>
+                        <div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="daily" id="daily" />
+                                <Label htmlFor="daily">Daily</Label>
+                            </div>
+                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">Every day at 4:00 AM UTC</p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="weekly" id="weekly" />
-                            <Label htmlFor="weekly">Weekly</Label>
+                        <div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="weekly" id="weekly" />
+                                <Label htmlFor="weekly">Weekly</Label>
+                            </div>
+                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">Every Monday at 4:00 AM UTC</p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="monthly" id="monthly" />
-                            <Label htmlFor="monthly">Monthly</Label>
+                        <div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="monthly" id="monthly" />
+                                <Label htmlFor="monthly">Monthly</Label>
+                            </div>
+                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">1st of each month at 4:00 AM UTC</p>
                         </div>
                     </RadioGroup>
                     <Button type="submit" className="w-full" disabled={loading}>
@@ -137,8 +175,8 @@ export default function SettingsPage() {
                     Logout
                 </Button>
                 <div className="border-t pt-6">
-                    <h2 className="text-sm font-semibold text-gray-700">Your Data</h2>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <h2 className="text-sm font-semibold text-foreground">Your Data</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
                         Download a copy of all your personal data as a JSON file.
                     </p>
                     <Button variant="outline" className="w-full mt-3" onClick={handleExportData} disabled={exporting}>
@@ -147,7 +185,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="border-t pt-6">
                     <h2 className="text-sm font-semibold text-red-600">Danger Zone</h2>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="mt-1 text-sm text-muted-foreground">
                         Permanently delete your account and all associated data.
                     </p>
                     <AlertDialog>
@@ -174,6 +212,7 @@ export default function SettingsPage() {
                                         const { error } = await supabase.rpc("delete_account");
                                         if (error) {
                                             setMessage("Failed to delete account. Please try again.");
+                                            setIsError(true);
                                             setDeleting(false);
                                             return;
                                         }
