@@ -14,12 +14,9 @@ async function sendWelcomeRecommendation(user: { id: string; email?: string; use
         return
     }
 
-    // Use a fresh server client with service role key to bypass RLS for the album lookup
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const admin = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    // Use admin client with service role key to bypass RLS for the album lookup
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const admin = createAdminClient()
 
     const { data: album, error: albumError } = await admin
         .from('albums')

@@ -63,10 +63,7 @@ def get_spotify_token() -> str | None:
 
 def _normalize(text: str) -> str:
     """Normalize text for fuzzy comparison: strip diacritics, standardize punctuation."""
-    # Strip diacritics/accents (e.g. "Éthiopiques" → "ethiopiques")
-    text = unicodedata.normalize("NFD", text)
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    text = text.lower()
+    text = _strip_diacritics(text).lower()
     # Normalize apostrophes/quotes
     text = re.sub(r"[''`]", "'", text)
     # Normalize ampersand
@@ -78,11 +75,16 @@ def _normalize(text: str) -> str:
     return text
 
 
-def _to_search_query(text: str) -> str:
-    """Strip accents and normalize for use as an iTunes search query."""
+def _strip_diacritics(text: str) -> str:
+    """Strip diacritics/accents from text."""
     text = unicodedata.normalize("NFD", text)
     text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    return text.strip()
+    return text
+
+
+def _to_search_query(text: str) -> str:
+    """Strip accents and normalize for use as an iTunes search query."""
+    return _strip_diacritics(text).strip()
 
 
 def _word_overlap(a: str, b: str) -> float:
