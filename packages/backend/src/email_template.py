@@ -107,6 +107,7 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
   </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;">Your jazz pick: {title} by {artist}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 40px 20px;">
     <tr>
       <td align="center">

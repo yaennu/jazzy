@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff } from "lucide-react";
+import { JazzyLogo } from "@/components/jazzy-logo";
 
 export default function RegisterPage() {
     const [name, setName] = useState("");
@@ -52,7 +54,7 @@ export default function RegisterPage() {
             }
 
             if (data.session) {
-                router.push("/settings");
+                router.push("/history");
                 router.refresh();
             } else {
                 setSuccess(true);
@@ -63,28 +65,41 @@ export default function RegisterPage() {
 
     if (success) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
-                    <div className="text-center">
-                        <h1 className="text-3xl font-bold">Check your email</h1>
-                        <p className="mt-2 text-sm text-gray-600">
+            <div className="flex flex-col min-h-screen">
+                <div className="flex justify-center px-6 py-8">
+                    <Link href="/" className="hover:opacity-80 transition-opacity">
+                        <JazzyLogo fill="#18181b" height={40} />
+                    </Link>
+                </div>
+                <div className="flex items-center justify-center flex-1">
+                    <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
+                        <div className="text-center">
+                            <h1 className="text-3xl font-bold">Check your email</h1>
+                        <p className="mt-2 text-sm text-muted-foreground">
                             We&apos;ve sent a confirmation link to <strong>{email}</strong>. Please check your inbox to verify your account.
+                            </p>
+                        </div>
+                        <p className="text-center text-sm text-muted-foreground">
+                            <Link href="/login" className="text-blue-600 hover:underline">Back to Login</Link>
                         </p>
                     </div>
-                    <p className="text-center text-sm text-gray-600">
-                        <Link href="/login" className="text-blue-600 hover:underline">Back to Login</Link>
-                    </p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
-                <div className="text-center">
-                    <h1 className="text-3xl font-bold">Register</h1>
-                    <p className="mt-2 text-sm text-gray-600">Create your account</p>
+        <div className="flex flex-col min-h-screen">
+            <div className="flex justify-center px-6 py-8">
+                <Link href="/" className="hover:opacity-80 transition-opacity">
+                    <JazzyLogo fill="#18181b" height={40} />
+                </Link>
+            </div>
+            <div className="flex items-center justify-center flex-1">
+                <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
+                    <div className="text-center">
+                        <h1 className="text-3xl font-bold">Register</h1>
+                    <p className="mt-2 text-sm text-muted-foreground">Create your account</p>
                 </div>
                 <form onSubmit={handleRegister} className="space-y-6">
                     {error && (
@@ -96,36 +111,36 @@ export default function RegisterPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="m@example.com" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
+                        <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
                         <div className="relative">
                             <Input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} className="pr-10" />
-                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-muted-foreground">
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                         </div>
                     </div>
                     <div className="flex items-start space-x-2">
-                        <input
+                        <Checkbox
                             id="consent"
-                            type="checkbox"
                             checked={consent}
-                            onChange={(e) => setConsent(e.target.checked)}
-                            className="mt-1 h-4 w-4 rounded border-gray-300"
+                            onCheckedChange={(checked) => setConsent(checked === true)}
+                            className="mt-0.5"
                         />
-                        <label htmlFor="consent" className="text-sm font-normal text-gray-600 leading-snug">
+                        <label htmlFor="consent" className="text-sm font-normal text-muted-foreground leading-snug">
                             I agree to the{" "}<Link href="/privacy" className="text-blue-600 hover:underline" target="_blank">Privacy Policy</Link>{" "}and consent to receiving jazz album recommendations via email.
                         </label>
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading || !consent}>
-                        {loading ? "Creating account..." : "Register"}
-                    </Button>
-                </form>
-                <p className="text-center text-sm text-gray-600">
-                    Already have an account? <Link href="/login" className="text-blue-600 hover:underline">Login</Link>
-                </p>
+                        <Button type="submit" className="w-full" disabled={loading || !consent}>
+                            {loading ? "Creating account..." : "Register"}
+                        </Button>
+                    </form>
+                    <p className="text-center text-sm text-muted-foreground">
+                        Already have an account? <Link href="/login" className="text-blue-600 hover:underline">Login</Link>
+                    </p>
+                </div>
             </div>
         </div>
     );

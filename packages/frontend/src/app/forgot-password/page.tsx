@@ -35,14 +35,14 @@ export default function ForgotPasswordPage() {
     if (success) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+                <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
                     <div className="text-center">
                         <h1 className="text-3xl font-bold">Check your email</h1>
-                        <p className="mt-2 text-sm text-gray-600">
+                        <p className="mt-2 text-sm text-muted-foreground">
                             We&apos;ve sent a password reset link to <strong>{email}</strong>. Please check your inbox.
                         </p>
                     </div>
-                    <p className="text-center text-sm text-gray-600">
+                    <p className="text-center text-sm text-muted-foreground">
                         <Link href="/login" className="text-blue-600 hover:underline">Back to Login</Link>
                     </p>
                 </div>
@@ -52,10 +52,10 @@ export default function ForgotPasswordPage() {
 
     return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+            <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
                 <div className="text-center">
                     <h1 className="text-3xl font-bold">Forgot password</h1>
-                    <p className="mt-2 text-sm text-gray-600">Enter your email and we&apos;ll send you a reset link</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Enter your email and we&apos;ll send you a reset link</p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {error && (
@@ -63,13 +63,13 @@ export default function ForgotPasswordPage() {
                     )}
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="m@example.com" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
+                        <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? "Sending..." : "Send reset link"}
                     </Button>
                 </form>
-                <p className="text-center text-sm text-gray-600">
+                <p className="text-center text-sm text-muted-foreground">
                     Remember your password? <Link href="/login" className="text-blue-600 hover:underline">Login</Link>
                 </p>
             </div>
