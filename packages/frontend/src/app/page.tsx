@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { JazzyLogo } from "@/components/jazzy-logo";
+import { AlbumEmailPreview } from "@/components/album-email-preview";
 
 interface PreviewAlbum {
     title: string;
@@ -12,6 +12,8 @@ interface PreviewAlbum {
     cover_image_url?: string | null;
     streaming_link_spotify?: string | null;
     streaming_link_apple?: string | null;
+    album_summary?: string | null;
+    artist_summary?: string | null;
 }
 
 async function getPreviewAlbum(): Promise<PreviewAlbum | null> {
@@ -24,7 +26,7 @@ async function getPreviewAlbum(): Promise<PreviewAlbum | null> {
     const admin = createAdminClient(supabaseUrl, serviceRoleKey);
     const { data } = await admin
         .from("albums")
-        .select("title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple")
+        .select("title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary")
         .eq("album_id", albumId)
         .single();
 
@@ -102,52 +104,15 @@ export default async function Home() {
             </section>
 
             {/* Sample Preview */}
-            <section className="px-6 py-16">
-                <div className="max-w-md mx-auto text-center">
-                    <h2 className="text-2xl font-bold mb-2">What you&apos;ll get</h2>
-                    <p className="text-sm text-gray-600 mb-8">A preview of your jazz recommendations</p>
-                    <div className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden">
-                        <div className="bg-gray-900 px-6 py-4 text-center">
-                            <JazzyLogo fill="#ffffff" height={20} className="mx-auto" />
-                            <p className="text-gray-400 text-xs mt-1">Your jazz album recommendations</p>
-                        </div>
-                        <div className="p-6">
-                            <div className="rounded-lg border border-gray-200 overflow-hidden">
-                                {album?.cover_image_url && (
-                                    <div className="relative aspect-square bg-gray-100">
-                                        <Image
-                                            src={album.cover_image_url}
-                                            alt={`${album.title} album cover`}
-                                            fill
-                                            className="object-cover"
-                                            sizes="(max-width: 448px) 100vw, 448px"
-                                        />
-                                    </div>
-                                )}
-                                <div className="p-6 text-center">
-                                    <p className="text-lg font-bold text-gray-900">{album?.title ?? "Kind of Blue"}</p>
-                                    <p className="text-gray-600 text-sm">
-                                        {album?.artist ?? "Miles Davis"}
-                                        {(album?.release_year ?? 1959) ? ` (${album?.release_year ?? 1959})` : ""}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex justify-center gap-2 mt-4">
-                                {(album?.streaming_link_spotify !== null) && (
-                                    <span className="inline-block bg-[#1DB954] text-white text-xs font-semibold px-4 py-2 rounded-md">
-                                        Listen on Spotify
-                                    </span>
-                                )}
-                                {(album?.streaming_link_apple !== null) && (
-                                    <span className="inline-block bg-[#FC3C44] text-white text-xs font-semibold px-4 py-2 rounded-md">
-                                        Apple Music
-                                    </span>
-                                )}
-                            </div>
-                        </div>
+            {album && (
+                <section className="px-6 py-16">
+                    <div className="max-w-xl mx-auto text-center">
+                        <h2 className="text-2xl font-bold mb-2">What you&apos;ll get</h2>
+                        <p className="text-sm text-gray-600 mb-8">A preview of your jazz recommendations</p>
+                        <AlbumEmailPreview album={album} />
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
         </div>
     );
 }
