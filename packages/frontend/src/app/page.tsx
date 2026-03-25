@@ -1,7 +1,35 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { JazzyLogo } from "@/components/jazzy-logo";
+
+interface PreviewAlbum {
+    title: string;
+    artist: string;
+    release_year?: number | null;
+    cover_image_url?: string | null;
+    streaming_link_spotify?: string | null;
+    streaming_link_apple?: string | null;
+}
+
+async function getPreviewAlbum(): Promise<PreviewAlbum | null> {
+    const albumId = process.env.LANDING_PREVIEW_ALBUM_ID;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!albumId || !supabaseUrl || !serviceRoleKey) return null;
+
+    const admin = createAdminClient(supabaseUrl, serviceRoleKey);
+    const { data } = await admin
+        .from("albums")
+        .select("title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple")
+        .eq("album_id", albumId)
+        .single();
+
+    return data;
+}
 
 export default async function Home() {
     const supabase = await createClient();
@@ -10,6 +38,8 @@ export default async function Home() {
     if (user) {
         redirect("/history");
     }
+
+    const album = await getPreviewAlbum();
 
     return (
         <div className="flex flex-col">
@@ -82,17 +112,37 @@ export default async function Home() {
                             <p className="text-gray-400 text-xs mt-1">Your jazz album recommendations</p>
                         </div>
                         <div className="p-6">
-                            <div className="rounded-lg border border-gray-200 p-6 text-center">
-                                <p className="text-lg font-bold text-gray-900">Kind of Blue</p>
-                                <p className="text-gray-600 text-sm">Miles Davis (1959)</p>
+                            <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                {album?.cover_image_url && (
+                                    <div className="relative aspect-square bg-gray-100">
+                                        <Image
+                                            src={album.cover_image_url}
+                                            alt={`${album.title} album cover`}
+                                            fill
+                                            className="object-cover"
+                                            sizes="(max-width: 448px) 100vw, 448px"
+                                        />
+                                    </div>
+                                )}
+                                <div className="p-6 text-center">
+                                    <p className="text-lg font-bold text-gray-900">{album?.title ?? "Kind of Blue"}</p>
+                                    <p className="text-gray-600 text-sm">
+                                        {album?.artist ?? "Miles Davis"}
+                                        {(album?.release_year ?? 1959) ? ` (${album?.release_year ?? 1959})` : ""}
+                                    </p>
+                                </div>
                             </div>
                             <div className="flex justify-center gap-2 mt-4">
-                                <span className="inline-block bg-[#1DB954] text-white text-xs font-semibold px-4 py-2 rounded-md">
-                                    Listen on Spotify
-                                </span>
-                                <span className="inline-block bg-[#FC3C44] text-white text-xs font-semibold px-4 py-2 rounded-md">
-                                    Apple Music
-                                </span>
+                                {(album?.streaming_link_spotify !== null) && (
+                                    <span className="inline-block bg-[#1DB954] text-white text-xs font-semibold px-4 py-2 rounded-md">
+                                        Listen on Spotify
+                                    </span>
+                                )}
+                                {(album?.streaming_link_apple !== null) && (
+                                    <span className="inline-block bg-[#FC3C44] text-white text-xs font-semibold px-4 py-2 rounded-md">
+                                        Apple Music
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
