@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { JazzyLogo } from "@/components/jazzy-logo";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -38,10 +39,16 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen">
-            <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
-                <div className="text-center">
-                    <h1 className="text-3xl font-bold">Login</h1>
+        <div className="flex flex-col min-h-screen">
+            <div className="flex justify-center px-6 py-8">
+                <Link href="/" className="hover:opacity-80 transition-opacity">
+                    <JazzyLogo fill="#18181b" height={40} />
+                </Link>
+            </div>
+            <div className="flex items-center justify-center flex-1">
+                <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-md">
+                    <div className="text-center">
+                        <h1 className="text-3xl font-bold">Login</h1>
                     <p className="mt-2 text-sm text-muted-foreground">Welcome back</p>
                 </div>
                 <form onSubmit={handleLogin} className="space-y-6">
@@ -73,9 +80,10 @@ export default function LoginPage() {
                         {loading ? "Logging in..." : "Login"}
                     </Button>
                 </form>
-                <p className="text-center text-sm text-muted-foreground">
-                    Don&apos;t have an account? <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
-                </p>
+                    <p className="text-center text-sm text-muted-foreground">
+                        Don&apos;t have an account? <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
+                    </p>
+                </div>
             </div>
         </div>
     );
