@@ -29,7 +29,7 @@ def _render_summaries(album_summary: str | None, artist_summary: str | None) -> 
               </table>'''
 
 
-def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: str = "") -> str:
+def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: str = "", is_rerun: bool = False) -> str:
     title = album.get("title", "Unknown Album")
     artist = album.get("artist", "Unknown Artist")
     release_year = album.get("release_year")
@@ -129,6 +129,7 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
               <p style="margin: 0 0 24px; color: #52525b; font-size: 15px; line-height: 1.6;">
                 We picked a jazz album just for you. Give it a listen and let the music take you somewhere new.
               </p>
+              {'<p style="margin: 0 0 12px; color: #a1a1aa; font-size: 12px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">From the archives</p>' if is_rerun else ''}
               <!-- Album Card -->
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-radius: 8px; border: 1px solid #e4e4e7;">
                 {'<tr class="album-cover"><td style="padding: 24px 24px 0; text-align: center;"><img src="' + cover_image_url + '" alt="' + title + ' album cover" width="260" style="display: block; margin: 0 auto; border-radius: 8px; max-width: 100%; height: auto;" /></td></tr>' if cover_image_url else ''}

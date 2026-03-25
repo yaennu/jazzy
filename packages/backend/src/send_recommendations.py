@@ -88,8 +88,12 @@ def _get_last_sent_order(client: Client, user_id: str) -> int | None:
     return None
 
 
-def get_unsent_album(client: Client, user_id: str) -> dict | None:
-    """Pick the next album in calendar_order that hasn't been sent to this user."""
+def get_unsent_album(client: Client, user_id: str) -> tuple[dict | None, bool]:
+    """Pick the next album in calendar_order that hasn't been sent to this user.
+
+    Returns a tuple of (album, is_rerun) where is_rerun is True when the
+    recommendation history was cleared and the cycle restarted.
+    """
     # Get album IDs already sent to this user
     sent_response = (
         client.table("recommendations")
@@ -111,13 +115,15 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
     # Filter out already-sent albums
     unsent = [a for a in all_albums if a["album_id"] not in sent_ids]
 
+    is_rerun = False
     if not unsent:
         # All albums sent — clear history and start over
         client.table("recommendations").delete().eq("user_id", user_id).execute()
         unsent = all_albums
+        is_rerun = True
 
     if not unsent:
-        return None
+        return None, False
 
     # Sort: albums with calendar_order first (ascending), NULLs last
     unsent.sort(key=lambda a: (a.get("calendar_order") is None, a.get("calendar_order") or 0))
@@ -129,16 +135,16 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
         for album in unsent:
             order = album.get("calendar_order")
             if order is not None and order > last_order:
-                return album
+                return album, is_rerun
 
     # No previous recommendation, or wrap-around: return the first in sequence
-    return unsent[0]
+    return unsent[0], is_rerun
 
 
-def send_email(user: dict, album: dict) -> bool:
+def send_email(user: dict, album: dict, is_rerun: bool = False) -> bool:
     """Send a recommendation email via Resend. Returns True on success."""
     unsubscribe_url = f"{FRONTEND_URL}/unsubscribe?token={user['unsubscribe_token']}"
-    html = render_recommendation_email(user["name"], album, unsubscribe_url)
+    html = render_recommendation_email(user["name"], album, unsubscribe_url, is_rerun=is_rerun)
 
     try:
         resend.Emails.send({
@@ -174,16 +180,17 @@ def main():
     skip_count = 0
 
     for user in users:
-        album = get_unsent_album(client, user["user_id"])
+        album, is_rerun = get_unsent_album(client, user["user_id"])
 
         if album is None:
             print(f"  {user['email']}: no unsent albums left, skipping.")
             skip_count += 1
             continue
 
-        print(f"  {user['email']}: sending '{album['title']}' by {album['artist']}...")
+        rerun_label = " (rerun)" if is_rerun else ""
+        print(f"  {user['email']}: sending '{album['title']}' by {album['artist']}{rerun_label}...")
 
-        if send_email(user, album):
+        if send_email(user, album, is_rerun=is_rerun):
             record_recommendation(client, user["user_id"], album["album_id"])
             sent_count += 1
 
