@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
                     )}
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
+                        <Input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? "Sending..." : "Send reset link"}

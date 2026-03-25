@@ -4,22 +4,31 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { RecommendationEmailModal } from "@/components/recommendation-email-modal";
+
+interface Album {
+    title: string;
+    artist: string;
+    release_year?: number | null;
+    cover_image_url?: string | null;
+    streaming_link_spotify?: string | null;
+    streaming_link_apple?: string | null;
+    album_summary?: string | null;
+    artist_summary?: string | null;
+    spotify_link_is_substitute?: boolean | null;
+    apple_link_is_substitute?: boolean | null;
+}
 
 interface Recommendation {
     sent_date: string;
-    albums: {
-        title: string;
-        artist: string;
-        release_year?: number | null;
-        cover_image_url?: string | null;
-        streaming_link_spotify?: string | null;
-        streaming_link_apple?: string | null;
-    };
+    albums: Album;
 }
 
 export default function HistoryPage() {
     const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+    const [modalOpen, setModalOpen] = useState(false);
     const supabase = createClient();
 
     useEffect(() => {
@@ -29,7 +38,7 @@ export default function HistoryPage() {
 
             const { data } = await supabase
                 .from("recommendations")
-                .select("sent_date, albums(title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple)")
+                .select("sent_date, albums(title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary, spotify_link_is_substitute, apple_link_is_substitute)")
                 .eq("user_id", user.id)
                 .order("sent_date", { ascending: false });
 
@@ -98,7 +107,14 @@ export default function HistoryPage() {
                     });
 
                     return (
-                        <div key={index} className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div
+                            key={index}
+                            className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:scale-105"
+                            onClick={() => {
+                                setSelectedAlbum(album);
+                                setModalOpen(true);
+                            }}
+                        >
                             {album.cover_image_url ? (
                                 <div className="aspect-square relative bg-gray-100">
                                     <Image
@@ -126,6 +142,7 @@ export default function HistoryPage() {
                                             href={album.streaming_link_spotify}
                                             target="_blank"
                                             rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
                                             className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#1DB954] text-white hover:opacity-90 transition-opacity"
                                         >
                                             Spotify
@@ -136,6 +153,7 @@ export default function HistoryPage() {
                                             href={album.streaming_link_apple}
                                             target="_blank"
                                             rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
                                             className="text-xs font-medium px-3 py-1.5 rounded-md bg-[#FC3C44] text-white hover:opacity-90 transition-opacity"
                                         >
                                             Apple Music
@@ -147,6 +165,12 @@ export default function HistoryPage() {
                     );
                 })}
             </div>
+
+            <RecommendationEmailModal
+                album={selectedAlbum}
+                open={modalOpen}
+                onOpenChange={setModalOpen}
+            />
         </div>
     );
 }
