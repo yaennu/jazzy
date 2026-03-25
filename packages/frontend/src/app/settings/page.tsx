@@ -150,21 +150,21 @@ export default function SettingsPage() {
                                 <RadioGroupItem value="daily" id="daily" />
                                 <Label htmlFor="daily">Daily</Label>
                             </div>
-                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">Every day at 4:00 AM UTC</p>
+                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">Every day at 6:00</p>
                         </div>
                         <div>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="weekly" id="weekly" />
                                 <Label htmlFor="weekly">Weekly</Label>
                             </div>
-                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">Every Monday at 4:00 AM UTC</p>
+                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">Every Monday at 6:00</p>
                         </div>
                         <div>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="monthly" id="monthly" />
                                 <Label htmlFor="monthly">Monthly</Label>
                             </div>
-                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">1st of each month at 4:00 AM UTC</p>
+                            <p className="text-xs text-muted-foreground ml-6 mt-0.5">1st of each month at 6:00</p>
                         </div>
                     </RadioGroup>
                     <Button type="submit" className="w-full" disabled={loading}>
