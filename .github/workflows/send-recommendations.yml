@@ -2,7 +2,7 @@ name: Send Recommendations
 
 on:
   schedule:
-    - cron: '0 4 * * *' # Daily at 04:00 UTC
+    - cron: '30 3 * * 5' # Weekly on Friday at 05:30 CET (03:30 UTC)
   workflow_dispatch:
 
 jobs:
