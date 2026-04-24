@@ -46,7 +46,7 @@ def get_eligible_frequencies() -> list[str]:
     now = datetime.now(timezone.utc)
     frequencies = ["daily"]
 
-    if now.weekday() == 0:  # Monday
+    if now.weekday() == 4:  # Friday
         frequencies.append("weekly")
 
     if now.day == 1:
