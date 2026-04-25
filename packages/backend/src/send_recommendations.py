@@ -137,8 +137,15 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
 
 def send_email(user: dict, album: dict) -> bool:
     """Send a recommendation email via Resend. Returns True on success."""
+    from urllib.parse import quote
     unsubscribe_url = f"{FRONTEND_URL}/unsubscribe?token={user['unsubscribe_token']}"
-    html = render_recommendation_email(user["name"], album, unsubscribe_url)
+    report_bug_url = (
+        f"{FRONTEND_URL}/report-bug"
+        f"?album_id={album['album_id']}"
+        f"&title={quote(album.get('title', ''))}"
+        f"&artist={quote(album.get('artist', ''))}"
+    )
+    html = render_recommendation_email(user["name"], album, unsubscribe_url, report_bug_url)
 
     try:
         resend.Emails.send({
