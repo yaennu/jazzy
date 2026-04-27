@@ -35,6 +35,7 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
     release_year = album.get("release_year")
     cover_image_url = album.get("cover_image_url")
     spotify_link = album.get("streaming_link_spotify")
+    spotify_is_substitute = album.get("spotify_link_is_substitute", False)
     apple_link = album.get("streaming_link_apple")
     artist_summary = album.get("artist_summary")
     album_summary = album.get("album_summary")
@@ -45,10 +46,13 @@ def render_recommendation_email(user_name: str, album: dict, unsubscribe_url: st
     if spotify_link or apple_link:
         buttons = ""
         if spotify_link:
+            substitute_label = '<span style="display: block; margin-top: 5px; font-size: 11px; color: #71717a; text-align: center;">similar album</span>' if spotify_is_substitute else ""
             buttons += f'''
-                    <a href="{spotify_link}" class="streaming-btn" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
-                      Listen on Spotify
-                    </a>'''
+                    <span style="display: inline-block; margin: 6px; vertical-align: top;">
+                      <a href="{spotify_link}" class="streaming-btn" style="display: inline-block; background-color: #1DB954; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 0; min-width: 160px; box-sizing: border-box; text-align: center;">
+                        Listen on Spotify
+                      </a>{substitute_label}
+                    </span>'''
         if apple_link:
             buttons += f'''
                     <a href="{apple_link}" class="streaming-btn" style="display: inline-block; background-color: #FC3C44; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 8px; margin: 6px; min-width: 160px; box-sizing: border-box; text-align: center;">
