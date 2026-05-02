@@ -104,7 +104,7 @@ Album recommendations are sent automatically via a scheduled GitHub Actions work
 1. Sign up at [resend.com](https://resend.com) and create an API key
 2. Verify a sending domain (or use the test domain for development)
 3. Add the `RESEND_API_KEY` and `FROM_EMAIL` (e.g., `Jazzy <noreply@jazzy.yaennu.ch>`) secrets in **Settings > Secrets and variables > Actions**
-4. The **Send Recommendations** workflow runs daily at 04:00 UTC
+4. The **Send Recommendations** workflow runs weekly on Friday at 05:30 CET (03:30 UTC)
 5. It can also be triggered manually from **Actions > Send Recommendations > Run workflow**
 
 The script checks each user's `newsletter_frequency` preference (daily/weekly/monthly) and sends a random unsent album recommendation to eligible users. When all albums have been sent, the recommendation history resets and starts over from the beginning.

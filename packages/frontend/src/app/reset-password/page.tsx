@@ -37,7 +37,7 @@ export default function ResetPasswordPage() {
             setError(error.message);
             setLoading(false);
         } else {
-            router.push("/settings");
+            router.push("/history");
             router.refresh();
         }
     };
@@ -55,11 +55,11 @@ export default function ResetPasswordPage() {
                     )}
                     <div className="space-y-2">
                         <Label htmlFor="password">New password</Label>
-                        <Input id="password" type="password" required value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} />
+                        <Input id="password" name="password" type="password" autoComplete="new-password" required value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="confirmPassword">Confirm new password</Label>
-                        <Input id="confirmPassword" type="password" required value={confirmPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)} />
+                        <Input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required value={confirmPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)} />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? "Updating..." : "Update password"}

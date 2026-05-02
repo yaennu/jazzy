@@ -23,7 +23,7 @@ async function sendWelcomeRecommendation(user: { id: string; email?: string; use
 
     const { data: album, error: albumError } = await admin
         .from('albums')
-        .select('title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary, spotify_link_is_substitute, apple_link_is_substitute')
+        .select('title, artist, release_year, cover_image_url, streaming_link_spotify, streaming_link_apple, album_summary, artist_summary')
         .eq('album_id', albumId)
         .single()
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     const token_hash = searchParams.get('token_hash')
     const type = searchParams.get('type') as EmailOtpType | null
     const code = searchParams.get('code')
-    const next = searchParams.get('next') ?? '/settings'
+    const next = searchParams.get('next') ?? '/history'
 
     const redirectTo = request.nextUrl.clone()
     redirectTo.pathname = next
