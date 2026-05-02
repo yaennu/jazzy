@@ -37,8 +37,9 @@ export default function ImprintPage() {
                 <section className="space-y-3">
                     <h2 className="text-xl font-semibold">Copyright</h2>
                     <p className="text-sm text-gray-700 leading-relaxed">
-                        The source code of Jazzy is licensed under the GNU General Public License v3 (GPLv3) and available on{" "}
-                        <a href="https://github.com/yaennu/jazzy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub</a>.
+                        The source code of Jazzy is proprietary and source-available for evaluation purposes only. It is publicly visible on{" "}
+                        <a href="https://github.com/yaennu/jazzy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub</a>{" "}
+                        but no license is granted to use, copy, modify, or distribute it without a separate written agreement.
                         Album cover art, artist names, and album metadata remain the property of their respective rights holders.
                     </p>
                 </section>
