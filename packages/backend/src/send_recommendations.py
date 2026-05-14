@@ -6,8 +6,10 @@ to decide who gets an email today.
 
 import os
 import sys
+import time
 from datetime import datetime, timezone
 
+import httpx
 import resend
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -41,6 +43,21 @@ def init_resend() -> None:
     resend.api_key = api_key
 
 
+_TRANSIENT_ERRORS = (httpx.RemoteProtocolError, httpx.ConnectError, httpx.TimeoutException)
+
+
+def with_retry(fn, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except _TRANSIENT_ERRORS as e:
+            if attempt == max_retries - 1:
+                raise
+            wait = 2 ** attempt
+            print(f"  Network error (attempt {attempt + 1}/{max_retries}), retrying in {wait}s: {e}")
+            time.sleep(wait)
+
+
 def get_eligible_frequencies() -> list[str]:
     """Return which newsletter frequencies should be sent today."""
     now = datetime.now(timezone.utc)
@@ -60,26 +77,26 @@ def get_eligible_users(client: Client) -> list[dict]:
     frequencies = get_eligible_frequencies()
     print(f"Eligible frequencies today: {frequencies}")
 
-    response = (
+    query = (
         client.table("users")
         .select("user_id, email, name, newsletter_frequency, unsubscribe_token")
         .eq("subscription_status", "active")
         .in_("newsletter_frequency", frequencies)
-        .execute()
     )
+    response = with_retry(lambda: query.execute())
     return response.data
 
 
 def _get_last_sent_order(client: Client, user_id: str) -> int | None:
     """Get the calendar_order of the most recently sent album for a user."""
-    response = (
+    query = (
         client.table("recommendations")
         .select("album_id, albums(calendar_order)")
         .eq("user_id", user_id)
         .order("sent_date", desc=True)
         .limit(1)
-        .execute()
     )
+    response = with_retry(lambda: query.execute())
     if not response.data:
         return None
     album_data = response.data[0].get("albums")
@@ -91,21 +108,21 @@ def _get_last_sent_order(client: Client, user_id: str) -> int | None:
 def get_unsent_album(client: Client, user_id: str) -> dict | None:
     """Pick the next album in calendar_order that hasn't been sent to this user."""
     # Get album IDs already sent to this user
-    sent_response = (
+    sent_query = (
         client.table("recommendations")
         .select("album_id")
         .eq("user_id", user_id)
-        .execute()
     )
+    sent_response = with_retry(lambda: sent_query.execute())
     sent_ids = [r["album_id"] for r in sent_response.data]
 
     # Get all albums that have at least one streaming link
-    albums_response = (
+    albums_query = (
         client.table("albums")
         .select("*")
         .or_("streaming_link_spotify.not.is.null,streaming_link_apple.not.is.null")
-        .execute()
     )
+    albums_response = with_retry(lambda: albums_query.execute())
     all_albums = albums_response.data
 
     # Filter out already-sent albums
@@ -113,7 +130,8 @@ def get_unsent_album(client: Client, user_id: str) -> dict | None:
 
     if not unsent:
         # All albums sent — clear history and start over
-        client.table("recommendations").delete().eq("user_id", user_id).execute()
+        delete_query = client.table("recommendations").delete().eq("user_id", user_id)
+        with_retry(lambda: delete_query.execute())
         unsent = all_albums
 
     if not unsent:
@@ -162,10 +180,11 @@ def send_email(user: dict, album: dict) -> bool:
 
 def record_recommendation(client: Client, user_id: str, album_id: str) -> None:
     """Insert a row into the recommendations table."""
-    client.table("recommendations").insert({
+    insert_query = client.table("recommendations").insert({
         "user_id": user_id,
         "album_id": album_id,
-    }).execute()
+    })
+    with_retry(lambda: insert_query.execute())
 
 
 def main():
