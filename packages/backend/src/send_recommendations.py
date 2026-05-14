@@ -23,6 +23,11 @@ FROM_EMAIL = os.environ.get("FROM_EMAIL", "Jazzy <noreply@jazzy.yaennu.ch>")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 
+def mask_email(email: str) -> str:
+    local, _, domain = email.partition("@")
+    return f"{local[:2]}***@{domain}"
+
+
 def get_supabase_client() -> Client:
     load_dotenv(os.path.join(BACKEND_ROOT, ".env.local"))
     if os.environ.get("PRODUCTION") == "True":
@@ -174,7 +179,7 @@ def send_email(user: dict, album: dict) -> bool:
         })
         return True
     except Exception as e:
-        print(f"  Failed to send to {user['email']}: {e}")
+        print(f"  Failed to send to {mask_email(user['email'])}: {e}")
         return False
 
 
@@ -203,11 +208,11 @@ def main():
         album = get_unsent_album(client, user["user_id"])
 
         if album is None:
-            print(f"  {user['email']}: no unsent albums left, skipping.")
+            print(f"  {mask_email(user['email'])}: no unsent albums left, skipping.")
             skip_count += 1
             continue
 
-        print(f"  {user['email']}: sending '{album['title']}' by {album['artist']}...")
+        print(f"  {mask_email(user['email'])}: sending '{album['title']}' by {album['artist']}...")
 
         if send_email(user, album):
             record_recommendation(client, user["user_id"], album["album_id"])
